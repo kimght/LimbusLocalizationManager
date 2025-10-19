@@ -27,11 +27,11 @@ format = "auto"
 fonts = []
 
 [ru-RCR]
-repo = "enqenqenqenqenq/RCR"
+repo = "EnderDremurr/RCR-LCB"
 name = "Rainbus Company Rofls"
 authors = ["Rainbus Company Rofls"]
 flag = "RU"
-icon = "https://github.com/enqenqenqenqenq/RCR/raw/main/data/images/logo.png"
+icon = "https://github.com/EnderDremurr/RCR-LCB/raw/main/data/images/logo.png"
 format = "auto"
 fonts = []
 
