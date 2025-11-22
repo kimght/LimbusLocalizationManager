@@ -127,21 +127,21 @@ url = "https://raw.githubusercontent.com/LocalizeLimbusCompany/LocalizeLimbusCom
 hash = "b1af87d9b8a3975e58b9a25a0c04f7b4"
 name = "Title/ChineseFont.ttf"
 
-[ptbr-TeamPato]
-repo = "2tsunami5/Team-PATO_LimbusCompanyBrasil"
-name = "LCBPATO"
-authors = ["Team PATO"]
+[ptbr-Uniao]
+repo = "2tsunami5/Uniao_LimbusCompanyPT-BR"
+name = "Uniao"
+authors = ["União"]
 flag = "BR"
-icon = "https://raw.githubusercontent.com/2tsunami5/Team-PATO_LimbusCompanyBrasil/LCBPATO/team_resources/img/434949545-0aa4ce11-2885-4328-8c0d-beeb0fa13169.png"
+icon = "https://github.com/2tsunami5/Uniao_LimbusCompanyPT-BR/raw/refs/heads/Uniao/team_resources/img/Lunacy_chaves.jpg"
 format = "auto"
 
-[[ptbr-TeamPato.fonts]]
-url = "https://github.com/2tsunami5/Team-PATO_LimbusCompanyBrasil/raw/refs/heads/LCBPATO/team_resources/font/BebasNeue-Regular.ttf"
+[[ptbr-Uniao.fonts]]
+url = "https://github.com/2tsunami5/Uniao_LimbusCompanyPT-BR/raw/refs/heads/Uniao/team_resources/font/BebasNeue-Regular.ttf"
 hash = "b2b293064f557c41411aac04d6f6710d"
 name = "Context/BebasNeue-Regular.ttf"
 
-[[ptbr-TeamPato.fonts]]
-url = "https://github.com/2tsunami5/Team-PATO_LimbusCompanyBrasil/raw/refs/heads/LCBPATO/team_resources/font/BebasNeue-Regular.ttf"
+[[ptbr-Uniao.fonts]]
+url = "https://github.com/2tsunami5/Uniao_LimbusCompanyPT-BR/raw/refs/heads/Uniao/team_resources/font/BebasNeue-Regular.ttf"
 hash = "b2b293064f557c41411aac04d6f6710d"
 name = "Title/BebasNeue-Regular.ttf"
 
