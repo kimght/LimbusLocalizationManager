@@ -1,16 +1,15 @@
-import { rootStore } from "@/stores";
-import { observer } from "mobx-react-lite";
 import { useParams } from "react-router";
 import styles from "./page.module.css";
 import Markdown from "@/components/markdown/markdown";
 import Actions from "./actions";
 import { ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useLocalizations } from "@/hooks/use-localizations";
 
 function Page() {
   const { id } = useParams();
   const { t } = useTranslation();
-  const { localizations } = rootStore;
+  const { byId } = useLocalizations();
 
   if (!id) {
     return (
@@ -21,7 +20,7 @@ function Page() {
     );
   }
 
-  const localization = localizations.byId[id];
+  const localization = byId[id];
 
   if (!localization) {
     return (
@@ -50,4 +49,4 @@ function Page() {
   );
 }
 
-export default observer(Page);
+export default Page;

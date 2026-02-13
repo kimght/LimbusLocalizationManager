@@ -33,6 +33,7 @@ export interface Weapon {
   readonly critMultiplier: number;
   readonly boxPrice: number;
   readonly cost: number;
+  readonly chainPosition: { x: number; y: number };
 
   onHit?(game: GlupoStore, params: HitParams): void;
   onPanic?(game: GlupoStore): void;

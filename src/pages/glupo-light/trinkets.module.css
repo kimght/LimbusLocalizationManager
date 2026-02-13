@@ -1,0 +1,37 @@
+@reference "tailwindcss";
+@reference "../../globals.css";
+
+.container {
+  @apply flex flex-col gap-2;
+}
+
+.title {
+  @apply text-sm text-limbus-500;
+}
+
+.grid {
+  @apply grid gap-2 grid-cols-[repeat(auto-fill,4rem)];
+}
+
+.button {
+  @apply opacity-50 cursor-pointer;
+}
+
+.button img {
+  @apply w-16 h-16 select-none drag-none;
+  transition-property: filter;
+  transition-duration: 5s;
+  transition-timing-function: ease-in-out;
+}
+
+.locked img {
+  filter: grayscale(100%) brightness(0.5);
+}
+
+.locked {
+  @apply cursor-not-allowed;
+}
+
+.selected {
+  @apply !opacity-100;
+}

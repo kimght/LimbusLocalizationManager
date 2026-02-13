@@ -11,6 +11,7 @@ function Weapons() {
   const { t } = useTranslation();
 
   const assets = glupo.game.store.imageAssets!;
+  const { balance, boughtWeapons } = glupo.gameData!;
 
   return (
     <div className={styles.container}>
@@ -19,7 +20,7 @@ function Weapons() {
           key={weapon.id}
           className={styles.weapon}
           onClick={() => handleWeaponClick(weapon.id)}
-          disabled={!weapon.isBought && glupo.balance < weapon.cost}
+          disabled={!weapon.isBought && balance < weapon.cost}
         >
           <div className={styles.image}>
             <img src={assets[weapon.image].src} alt={weapon.name} />
@@ -40,7 +41,7 @@ function Weapons() {
   );
 
   function handleWeaponClick(weaponId: WeaponId) {
-    if (glupo.boughtWeapons.includes(weaponId)) {
+    if (boughtWeapons.includes(weaponId)) {
       glupo.selectWeapon(weaponId);
     } else {
       glupo.buyWeapon(weaponId);

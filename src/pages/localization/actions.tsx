@@ -1,22 +1,26 @@
-import { rootStore } from "@/stores";
-import { Localization, Status } from "@/stores/models";
-import { observer } from "mobx-react-lite";
+import { Localization } from "@/stores/models";
 import styles from "./actions.module.css";
 import { Hammer, FolderDown, Plus, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Grid } from "react-loader-spinner";
+import { useInstalled } from "@/hooks/use-app-state";
+import { useLocalizationStatus, useUpdateAndPlay } from "@/hooks/use-actions";
 
 interface ActionsProps {
   localization: Localization;
 }
 
 function Actions({ localization }: ActionsProps) {
-  const { state, actions } = rootStore;
   const { t } = useTranslation();
 
-  const installedVersion = state.installed?.[localization.id]?.version;
-  const status = actions.getStatus(localization);
-  const isIdle = status === Status.Idle && !actions.startingGame;
+  const installed = useInstalled();
+  const { install, uninstall, repair, isPending } = useLocalizationStatus(
+    localization.id
+  );
+  const { isPending: startingGame } = useUpdateAndPlay();
+
+  const installedVersion = installed?.[localization.id]?.version;
+  const isIdle = !isPending && !startingGame;
 
   return (
     <div className={styles.container}>
@@ -82,16 +86,16 @@ function Actions({ localization }: ActionsProps) {
   );
 
   function handleInstall() {
-    actions.install(localization);
+    install.mutate(localization);
   }
 
   function handleUninstall() {
-    actions.uninstall(localization);
+    uninstall.mutate(localization);
   }
 
   function handleRepair() {
-    actions.repair(localization);
+    repair.mutate(localization);
   }
 }
 
-export default observer(Actions);
+export default Actions;

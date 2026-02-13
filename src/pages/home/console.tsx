@@ -1,13 +1,11 @@
-import { rootStore } from "@/stores";
-import { useEffect } from "react";
-import { useRef } from "react";
-import { observer } from "mobx-react-lite";
+import { useEffect, useRef } from "react";
 import styles from "./console.module.css";
 import { useTranslation } from "react-i18next";
 import Log from "./log";
+import { usePlayProgress } from "@/hooks/use-play-progress";
 
 function Console() {
-  const { actions } = rootStore;
+  const { progressLog } = usePlayProgress();
   const { t } = useTranslation();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -20,13 +18,13 @@ function Console() {
       top: ref.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [actions.progressLog.length, ref.current]);
+  }, [progressLog.length]);
 
   return (
     <div className={styles.console}>
       <span className={styles.title}>{t("home.console")}</span>
       <div className={styles.container} ref={ref}>
-        {actions.progressLog.map((log, index) => (
+        {progressLog.map((log, index) => (
           <Log key={index} progress={log} />
         ))}
       </div>
@@ -34,4 +32,4 @@ function Console() {
   );
 }
 
-export default observer(Console);
+export default Console;

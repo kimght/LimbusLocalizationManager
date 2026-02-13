@@ -1,0 +1,24 @@
+@reference "tailwindcss";
+@reference "../../globals.css";
+
+.container {
+  @apply border border-limbus-600/30 rounded-md 
+    flex items-center gap-2 p-2 transition-colors duration-100 cursor-pointer
+    justify-between text-limbus-500 italic text-lg font-semibold;
+}
+
+.container:hover {
+  @apply border-limbus-600/60 text-limbus-400;
+}
+
+.shards {
+  @apply flex items-center gap-2;
+}
+
+.shards img {
+  @apply w-6 h-6 select-none drag-none;
+}
+
+.shards span {
+  @apply text-limbus-500 text-xl font-bold;
+}

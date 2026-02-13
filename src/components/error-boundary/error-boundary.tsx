@@ -1,13 +1,14 @@
 import { useRouteError } from "react-router";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { error as logError } from "@tauri-apps/plugin-log";
 
 function ErrorBoundary() {
   const { t } = useTranslation();
   const error = useRouteError();
 
   useEffect(() => {
-    console.error(error);
+    logError(`${error}`);
   }, [error]);
 
   return (

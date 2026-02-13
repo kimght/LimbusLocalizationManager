@@ -1,5 +1,4 @@
 import type { Progress } from "@/stores/models";
-import { observer } from "mobx-react-lite";
 import { useTranslation } from "react-i18next";
 import styles from "./log.module.css";
 import { NavLink } from "react-router";
@@ -50,4 +49,4 @@ function Log({ progress }: { progress: Progress }) {
   }
 }
 
-export default observer(Log);
+export default Log;

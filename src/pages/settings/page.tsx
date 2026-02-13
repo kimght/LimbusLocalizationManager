@@ -1,18 +1,29 @@
-import { observer } from "mobx-react-lite";
 import styles from "./page.module.css";
 import { ArrowDown, Folder, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { rootStore } from "@/stores";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toastError } from "@/components/toast/toast";
 import { languageNames } from "@/i18n";
 import { useLocation } from "react-router";
 import { cn } from "@/utils";
+import {
+  useAppState,
+  useLanguage,
+  useGameDirectory,
+  useUpdateSettings,
+  useSetGameDirectory,
+} from "@/hooks/use-app-state";
 
 function Page() {
   const { t } = useTranslation();
-  const { state } = rootStore;
+  const { data: appState } = useAppState();
+  const language = useLanguage();
+  const gameDirectory = useGameDirectory();
   const { hash } = useLocation();
+  const updateSettings = useUpdateSettings();
+  const setGameDirectory = useSetGameDirectory();
+
+  const settings = appState?.settings;
 
   return (
     <div className={styles.container}>
@@ -27,7 +38,7 @@ function Page() {
         >
           <h2>{t("settings.interfaceLanguage")}</h2>
           <div className={styles.select}>
-            <select value={state.language} onChange={handleLanguageChange}>
+            <select value={language} onChange={handleLanguageChange}>
               {Object.entries(languageNames).map(([key, name]) => (
                 <option key={key} value={key}>
                   {name}
@@ -42,14 +53,15 @@ function Page() {
           <h2>{t("settings.source")}</h2>
           <div className={styles.select}>
             <select
-              value={state.selectedSource ?? undefined}
+              value={settings?.selected_source ?? undefined}
               onChange={handleSourceChange}
             >
-              {Object.entries(state.sources!).map(([key, source]) => (
-                <option key={key} value={key}>
-                  {source.name}
-                </option>
-              ))}
+              {settings?.sources &&
+                Object.entries(settings.sources).map(([key, source]) => (
+                  <option key={key} value={key}>
+                    {source.name}
+                  </option>
+                ))}
             </select>
             <ArrowDown strokeWidth={1.5} />
           </div>
@@ -61,11 +73,11 @@ function Page() {
             <input
               type="text"
               className={styles.input}
-              value={state.gameDirectory ?? ""}
+              value={gameDirectory ?? ""}
               placeholder={t("settings.gameDirectoryDefault")}
               disabled
             />
-            {state.gameDirectory === null ? (
+            {gameDirectory === null ? (
               <button
                 className={styles.button}
                 onClick={handleGameDirectoryPick}
@@ -87,7 +99,11 @@ function Page() {
   );
 
   function handleSourceChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    state.selectSource(event.target.value);
+    if (!settings) return;
+    updateSettings.mutate({
+      ...settings,
+      selected_source: event.target.value,
+    });
   }
 
   async function handleGameDirectoryPick() {
@@ -100,26 +116,28 @@ function Page() {
       return;
     }
 
-    try {
-      await state.setGameDirectory(directory);
-    } catch (error) {
-      console.error(error);
-      toastError(t("error.setGameDirectory"));
-    }
+    setGameDirectory.mutate(directory, {
+      onError: () => {
+        toastError(t("error.setGameDirectory"));
+      },
+    });
   }
 
-  async function handleGameDirectoryClear() {
-    try {
-      await state.setGameDirectory(null);
-    } catch (error) {
-      console.error(error);
-      toastError(t("error.setGameDirectory"));
-    }
+  function handleGameDirectoryClear() {
+    setGameDirectory.mutate(null, {
+      onError: () => {
+        toastError(t("error.setGameDirectory"));
+      },
+    });
   }
 
   function handleLanguageChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    state.setLanguage(event.target.value as keyof typeof languageNames);
+    if (!settings) return;
+    updateSettings.mutate({
+      ...settings,
+      language: event.target.value,
+    });
   }
 }
 
-export default observer(Page);
+export default Page;

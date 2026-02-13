@@ -17,6 +17,14 @@ use zip::ZipArchive;
 const METADATA_FILE_NAME: &str = "llc_config.toml";
 const REPO_NAME: &str = "kimght/LimbusLocalizationManager";
 
+static HTTP_CLIENT: std::sync::LazyLock<Client> = std::sync::LazyLock::new(|| {
+    Client::builder()
+        .user_agent("Limbus Launcher")
+        .timeout(Duration::from_secs(30))
+        .build()
+        .expect("Failed to create HTTP client")
+});
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct GameConfig {
     lang: String,
@@ -125,12 +133,8 @@ pub fn save_installed_metadata(
 }
 
 pub async fn fetch_available_localizations(url: &str) -> Result<Vec<Localization>, anyhow::Error> {
-    let client = Client::new();
-
-    let response = client
+    let response = HTTP_CLIENT
         .get(url)
-        .header("User-Agent", "Limbus Launcher")
-        .timeout(Duration::from_secs(30))
         .send()
         .await
         .with_context(|| format!("Request error"))?;
@@ -219,7 +223,9 @@ pub async fn install_fonts_for_localization(
             .join("Font")
             .join(&font_info.name);
 
-        let target_fonts_dir = target_font_path.parent().unwrap();
+        let target_fonts_dir = target_font_path
+            .parent()
+            .ok_or_else(|| anyhow::anyhow!("Invalid font target path"))?;
 
         fs::create_dir_all(&target_fonts_dir).with_context(|| {
             format!(
@@ -320,13 +326,11 @@ pub async fn uninstall_localization(
 }
 
 pub async fn get_latest_version() -> Result<String, anyhow::Error> {
-    let client = Client::new();
-    let response = client
+    let response = HTTP_CLIENT
         .get(&format!(
             "https://api.github.com/repos/{}/releases/latest",
             REPO_NAME
         ))
-        .header("User-Agent", "Limbus Launcher")
         .send()
         .await
         .with_context(|| format!("Failed to get latest version"))?;
@@ -406,13 +410,10 @@ async fn download_localization_file(
     localization: &Localization,
     temp_dir: &tempfile::TempDir,
 ) -> Result<PathBuf, anyhow::Error> {
-    let client = Client::new();
     let download_path = temp_dir.path().join("localization.zip");
 
-    let response = client
+    let response = HTTP_CLIENT
         .get(&localization.url)
-        .header("User-Agent", "Limbus Launcher")
-        .timeout(Duration::from_secs(30))
         .send()
         .await
         .with_context(|| format!("Request error"))?;
@@ -649,13 +650,10 @@ async fn download_and_validate_font(
     save_path: &Path,
     expected_hash: &str,
 ) -> Result<(), anyhow::Error> {
-    let client = Client::new();
-
     debug!("Starting download from {} to {:?}", url, save_path);
 
-    let response = client
+    let response = HTTP_CLIENT
         .get(url)
-        .header("User-Agent", "Limbus Launcher")
         .timeout(Duration::from_secs(300))
         .send()
         .await

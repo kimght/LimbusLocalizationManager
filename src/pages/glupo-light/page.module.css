@@ -1,0 +1,46 @@
+@reference "tailwindcss";
+@reference "../../globals.css";
+
+.container {
+  @apply flex flex-col flex-1 relative gap-3;
+}
+
+.header {
+  @apply flex items-center justify-between;
+}
+
+.back {
+  @apply btn btn-lg flex items-center gap-2;
+}
+
+.back h1 {
+  @apply text-xl font-bold;
+}
+
+.balance {
+  @apply flex items-center gap-2;
+}
+
+.balance img {
+  @apply w-8 h-8 select-none drag-none;
+}
+
+.balance p {
+  @apply text-limbus-500 text-2xl font-bold;
+}
+
+.content {
+  @apply flex flex-col gap-3 h-full overflow-y-scroll overflow-x-hidden break-words no-scrollbar;
+}
+
+.content * {
+  @apply shrink-0;
+}
+
+.section {
+  @apply flex flex-col gap-2 p-2;
+}
+
+.section h2 {
+  @apply text-lg;
+}

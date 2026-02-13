@@ -31,6 +31,13 @@ impl AppState {
         app_state
     }
 
+    fn game_path(&self) -> anyhow::Result<std::path::PathBuf> {
+        match &self.settings.game_directory {
+            Some(dir) => Ok(std::path::PathBuf::from(dir)),
+            None => steam::get_game_directory(),
+        }
+    }
+
     fn update_settings(
         &mut self,
         app_handle: &tauri::AppHandle,
@@ -65,22 +72,13 @@ impl AppState {
     }
 
     fn load_installed_metadata(&mut self) -> anyhow::Result<()> {
-        let game_path = if let Some(game_directory) = &self.settings.game_directory {
-            std::path::PathBuf::from(game_directory)
-        } else {
-            steam::get_game_directory()?
-        };
-
+        let game_path = self.game_path()?;
         self.installed_metadata = Some(utils::load_installed_metadata(&game_path)?);
         Ok(())
     }
 
     fn save_installed_metadata(&self) -> anyhow::Result<()> {
-        let game_path = if let Some(game_directory) = &self.settings.game_directory {
-            std::path::PathBuf::from(game_directory)
-        } else {
-            steam::get_game_directory()?
-        };
+        let game_path = self.game_path()?;
 
         if let Some(metadata) = &self.installed_metadata {
             utils::save_installed_metadata(&game_path, metadata)?;
@@ -153,7 +151,7 @@ async fn get_available_localizations(
     *remote_localizations_guard = Some(remote_localizations.clone());
     app_handle
         .emit("remote_localizations_updated", remote_localizations)
-        .unwrap();
+        .map_err(|e| e.to_string())?;
     Ok(localizations)
 }
 
@@ -221,21 +219,16 @@ async fn install_localization(
             .clone()
             .ok_or_else(|| "No active source selected".to_string())?;
 
-        let game_directory = app_state_guard.settings.game_directory.clone();
-        game_path = if let Some(game_directory) = game_directory {
-            std::path::PathBuf::from(game_directory)
-        } else {
-            steam::get_game_directory().map_err(|e| {
-                error!("Failed to get game directory: {:?}", e);
-                e.to_string()
-            })?
-        };
+        game_path = app_state_guard.game_path().map_err(|e| {
+            error!("Failed to get game directory: {:?}", e);
+            e.to_string()
+        })?;
     }
 
     let lock = localization_lock
         .entry((localization.id.clone(), game_path.clone()))
         .or_insert_with(|| Mutex::new(()));
-    let _aquired_lock = lock.lock().await;
+    let _acquired_lock = lock.lock().await;
 
     utils::install_localization(&game_path, &localization)
         .await
@@ -306,20 +299,16 @@ async fn uninstall_localization(
     {
         let app_state_guard = state.lock().await;
 
-        game_path = if let Some(game_directory) = &app_state_guard.settings.game_directory {
-            std::path::PathBuf::from(game_directory)
-        } else {
-            steam::get_game_directory().map_err(|e| {
-                error!("Failed to get game directory: {:?}", e);
-                e.to_string()
-            })?
-        };
+        game_path = app_state_guard.game_path().map_err(|e| {
+            error!("Failed to get game directory: {:?}", e);
+            e.to_string()
+        })?;
     }
 
     let lock = localization_lock
         .entry((localization.id.clone(), game_path.clone()))
         .or_insert_with(|| Mutex::new(()));
-    let _aquired_lock = lock.lock().await;
+    let _acquired_lock = lock.lock().await;
 
     utils::uninstall_localization(&game_path, &localization)
         .await
@@ -331,12 +320,10 @@ async fn uninstall_localization(
     {
         let mut app_state_guard = state.lock().await;
 
-        app_state_guard
-            .installed_metadata
-            .as_mut()
-            .unwrap()
-            .installed
-            .remove(&localization.id);
+        if let Some(ref mut installed_metadata) = app_state_guard.installed_metadata {
+            installed_metadata.installed.remove(&localization.id);
+        }
+
         app_state_guard.save_installed_metadata().map_err(|e| {
             error!("Failed to save installed metadata: {:?}", e);
             e.to_string()
@@ -407,10 +394,12 @@ async fn update_and_play(
 ) -> Result<(), String> {
     debug!("Running update and play");
 
-    app_handle.emit("play:started", ()).unwrap();
+    app_handle
+        .emit("play:started", ())
+        .map_err(|e| e.to_string())?;
 
     if steam::is_game_running() {
-        app_handle.emit("play:game_running", ()).unwrap();
+        let _ = app_handle.emit("play:game_running", ());
         return Err("Game is already running".to_string());
     }
 
@@ -435,14 +424,10 @@ async fn update_and_play(
             .url
             .clone();
 
-        game_path = if let Some(game_directory) = &app_state_guard.settings.game_directory {
-            std::path::PathBuf::from(game_directory)
-        } else {
-            steam::get_game_directory().map_err(|e| {
-                error!("Failed to get game directory: {:?}", e);
-                e.to_string()
-            })?
-        };
+        game_path = app_state_guard.game_path().map_err(|e| {
+            error!("Failed to get game directory: {:?}", e);
+            e.to_string()
+        })?;
     }
 
     let remote_localizations = utils::fetch_available_localizations(&source_url)
@@ -452,19 +437,21 @@ async fn update_and_play(
             e.to_string()
         })?;
 
-    let mut remote_localizations_guard = remote_localizations_state.lock().await;
-    let remote_localizations_payload = RemoteLocalizations {
-        source: active_source.clone(),
-        localizations: remote_localizations.clone(),
-    };
+    {
+        let mut remote_localizations_guard = remote_localizations_state.lock().await;
+        let remote_localizations_payload = RemoteLocalizations {
+            source: active_source.clone(),
+            localizations: remote_localizations.clone(),
+        };
 
-    *remote_localizations_guard = Some(remote_localizations_payload.clone());
-    app_handle
-        .emit(
-            "remote_localizations_updated",
-            remote_localizations_payload.clone(),
-        )
-        .unwrap();
+        *remote_localizations_guard = Some(remote_localizations_payload.clone());
+        app_handle
+            .emit(
+                "remote_localizations_updated",
+                remote_localizations_payload,
+            )
+            .map_err(|e| e.to_string())?;
+    }
 
     let localizations_to_update: Vec<_> = state
         .lock()
@@ -479,32 +466,27 @@ async fn update_and_play(
                 .iter()
                 .find(|l| l.id == localization.id);
 
-            if let None = remote_localization {
+            let Some(remote) = remote_localization else {
                 info!(
                     "Localization {} not found in remote source",
                     &localization.id
                 );
-                app_handle
-                    .emit("play:unknown_localization", &localization.id)
-                    .unwrap();
+                let _ = app_handle.emit("play:unknown_localization", &localization.id);
                 return None;
-            }
+            };
 
-            let remote_localization = remote_localization.unwrap();
             let localization_path = game_path
                 .join("LimbusCompany_Data")
                 .join("Lang")
                 .join(&localization.id);
 
-            if localization_path.exists() && remote_localization.version == localization.version {
+            if localization_path.exists() && remote.version == localization.version {
                 info!("Localization {} is up to date", &localization.id);
-                app_handle
-                    .emit("play:up_to_date", &localization.id)
-                    .unwrap();
+                let _ = app_handle.emit("play:up_to_date", &localization.id);
                 return None;
             }
 
-            Some((localization.id.clone(), remote_localization.clone()))
+            Some((localization.id.clone(), remote.clone()))
         })
         .collect();
 
@@ -513,12 +495,12 @@ async fn update_and_play(
             "Updating localization {} to version {}",
             &localization_id, &remote_localization.version
         );
-        app_handle.emit("play:updating", &localization_id).unwrap();
+        let _ = app_handle.emit("play:updating", &localization_id);
 
         let lock = localization_lock
             .entry((localization_id.clone(), game_path.clone()))
             .or_insert_with(|| Mutex::new(()));
-        let _aquired_lock = lock.lock().await;
+        let _acquired_lock = lock.lock().await;
 
         utils::install_localization(&game_path, &remote_localization)
             .await
@@ -534,25 +516,21 @@ async fn update_and_play(
                 e.to_string()
             })?;
 
-        app_handle
-            .emit("play:update_finished", &localization_id)
-            .unwrap();
+        let _ = app_handle.emit("play:update_finished", &localization_id);
 
-        state
-            .lock()
-            .await
-            .installed_metadata
-            .as_mut()
-            .unwrap()
-            .installed
-            .insert(
-                remote_localization.id.clone(),
-                utils::InstalledLocalization {
-                    id: remote_localization.id.clone(),
-                    version: remote_localization.version.clone(),
-                    source: active_source.clone(),
-                },
-            );
+        {
+            let mut state_guard = state.lock().await;
+            if let Some(ref mut metadata) = state_guard.installed_metadata {
+                metadata.installed.insert(
+                    remote_localization.id.clone(),
+                    utils::InstalledLocalization {
+                        id: remote_localization.id.clone(),
+                        version: remote_localization.version.clone(),
+                        source: active_source.clone(),
+                    },
+                );
+            }
+        }
     }
 
     let state_guard = state.lock().await;
@@ -572,13 +550,17 @@ async fn update_and_play(
         error!("Failed to validate game config: {:?}", e);
     }
 
-    app_handle.emit("play:starting_game", ()).unwrap();
+    app_handle
+        .emit("play:starting_game", ())
+        .map_err(|e| e.to_string())?;
     steam::launch_game().map_err(|e| {
         error!("Failed to launch game: {:?}", e);
         e.to_string()
     })?;
 
-    app_handle.emit("play:finished", ()).unwrap();
+    app_handle
+        .emit("play:finished", ())
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 

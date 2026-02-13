@@ -12,6 +12,8 @@ function Armor() {
 
   const assets = glupo.game.store.imageAssets!;
 
+  const { balance, boughtArmor } = glupo.gameData!;
+
   return (
     <div className={styles.container}>
       {glupo.armorShop.map((armor) => (
@@ -19,7 +21,7 @@ function Armor() {
           key={armor.id}
           className={styles.armor}
           onClick={() => handleArmorClick(armor.id)}
-          disabled={!armor.isBought && glupo.balance < armor.cost}
+          disabled={!armor.isBought && balance < armor.cost}
         >
           <div className={styles.image}>
             <img src={assets[armor.image].src} alt={armor.name} />
@@ -40,7 +42,7 @@ function Armor() {
   );
 
   function handleArmorClick(armorId: ArmorId) {
-    if (glupo.boughtArmor.includes(armorId)) {
+    if (boughtArmor.includes(armorId)) {
       glupo.selectArmor(armorId);
     } else {
       glupo.buyArmor(armorId);

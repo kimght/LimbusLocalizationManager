@@ -1,0 +1,59 @@
+@reference "tailwindcss";
+@reference "../../globals.css";
+
+.container {
+  @apply flex flex-col items-center justify-center;
+}
+
+.reel {
+  @apply relative w-full;
+}
+
+/* .pointer {
+  @apply
+    absolute
+    left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2
+    z-10 border-limbus-500 border-1 rounded-lg
+  ;
+} */
+
+.shadow {
+  @apply absolute top-0 bottom-0 min-w-16 w-16 z-20;
+}
+
+.shadow.left {
+  @apply left-0 bg-gradient-to-r from-background to-transparent;
+}
+
+.shadow.right {
+  @apply right-0 bg-gradient-to-l from-background to-transparent;
+}
+
+.button {
+  @apply flex items-center justify-between gap-4
+    border border-limbus-500/60 rounded-md
+    transition-colors duration-100
+    py-2 px-4 cursor-pointer select-none
+    text-limbus-500 italic text-lg font-semibold;
+}
+
+.button span {
+  @apply flex items-center gap-1 border-l-1 border-limbus-500/60 pl-4
+    transition-colors duration-100 h-full;
+}
+
+.button:hover {
+  @apply border-limbus-500/90;
+
+  & span {
+    @apply border-limbus-500/90;
+  }
+}
+
+.button.spinning:disabled {
+  @apply opacity-50 cursor-default !border-limbus-500/90;
+
+  & span {
+    @apply border-limbus-500/90;
+  }
+}

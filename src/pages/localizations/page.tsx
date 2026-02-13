@@ -1,16 +1,15 @@
-import { observer } from "mobx-react-lite";
-import { rootStore } from "@/stores";
 import styles from "./page.module.css";
 import { NavLink, Outlet, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/utils";
+import { useLocalizations } from "@/hooks/use-localizations";
 
 function Page() {
-  const { localizations } = rootStore;
+  const { all, flags, isLoading, error, refetch } = useLocalizations();
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  if (localizations.isLoading) {
+  if (isLoading) {
     return (
       <div className={styles.loading}>
         <p>{t("localizations.loading")}</p>
@@ -18,7 +17,7 @@ function Page() {
     );
   }
 
-  if (localizations.error) {
+  if (error) {
     return (
       <div className={styles.error}>
         <span>{t("localizations.error")}</span>
@@ -35,7 +34,7 @@ function Page() {
   return (
     <div className={styles.container}>
       <div className={styles.list}>
-        {localizations.all.map((localization) => (
+        {all.map((localization) => (
           <NavLink
             key={localization.id}
             to={`/localizations/${localization.id}`}
@@ -44,7 +43,7 @@ function Page() {
             }
           >
             <img
-              src={localizations.flags[localization.id]}
+              src={flags[localization.id]}
               alt={localization.name}
               className="!w-6 !h-4 shrink-0"
             />
@@ -58,9 +57,9 @@ function Page() {
     </div>
   );
 
-  async function tryAgain() {
-    await localizations.fetchLocalizations();
+  function tryAgain() {
+    refetch();
   }
 }
 
-export default observer(Page);
+export default Page;

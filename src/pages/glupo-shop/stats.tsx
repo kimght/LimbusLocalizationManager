@@ -12,12 +12,11 @@ function Stats() {
   const { glupo } = rootStore;
   const { t } = useTranslation();
 
-  const baseStats = glupo.baseStats!;
+  const { baseStats } = glupo.gameData!;
   const totalStats = glupo.playerStats!;
   const maxStats = glupo.maxStats!;
   const upgradeCost = glupo.statsUpgradeCost;
   const canUpgrade = glupo.canUpgradeStats;
-
   const stats = glupo.stats!;
 
   return (

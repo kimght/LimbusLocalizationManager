@@ -7,12 +7,13 @@ import { formatEnkephalin } from "@/utils";
 function Reset() {
   const { glupo } = rootStore;
   const { t } = useTranslation();
+  const { balance } = glupo.gameData!;
 
   return (
     <button
       className={styles.container}
-      onClick={glupo.reset}
-      disabled={glupo.balance < glupo.resetCost}
+      onClick={glupo.buyReset}
+      disabled={balance < glupo.resetCost}
     >
       <p>{t("glupo.shop.reset")}</p>
       <span>{formatEnkephalin(glupo.resetCost)}</span>

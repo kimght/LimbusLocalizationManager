@@ -54,7 +54,7 @@ function Page() {
         cancelAnimationFrame(animationFrame);
       }
     };
-  }, [glupo, canvasRef.current]);
+  }, [glupo]);
 
   useEffect(() => {
     if (!canvasContainerRef.current || !canvasRef.current) {
@@ -63,7 +63,7 @@ function Page() {
 
     canvasRef.current.width = canvasContainerRef.current.clientWidth;
     canvasRef.current.height = canvasContainerRef.current.clientHeight;
-  }, [canvasContainerRef.current, canvasRef.current]);
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) {
@@ -94,16 +94,18 @@ function Page() {
       glupo.game.handleMouseEnter();
     };
 
-    canvasRef.current.addEventListener("mousemove", handleMouseMove);
-    canvasRef.current.addEventListener("mouseenter", handleMouseEnter);
-    canvasRef.current.addEventListener("mouseleave", handleMouseLeft);
+    const canvas = canvasRef.current;
+
+    canvas.addEventListener("mousemove", handleMouseMove);
+    canvas.addEventListener("mouseenter", handleMouseEnter);
+    canvas.addEventListener("mouseleave", handleMouseLeft);
 
     return () => {
-      canvasRef.current?.removeEventListener("mousemove", handleMouseMove);
-      canvasRef.current?.removeEventListener("mouseleave", handleMouseLeft);
-      canvasRef.current?.removeEventListener("mouseenter", handleMouseEnter);
+      canvas.removeEventListener("mousemove", handleMouseMove);
+      canvas.removeEventListener("mouseleave", handleMouseLeft);
+      canvas.removeEventListener("mouseenter", handleMouseEnter);
     };
-  }, [canvasRef.current, glupo.game]);
+  }, [glupo.game]);
 
   if (glupo.isLoading) {
     return (
@@ -113,12 +115,14 @@ function Page() {
     );
   }
 
+  const { balance, riskLevel } = glupo.gameData!;
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
         <h1>{t("glupo.title")}</h1>
         <div className={cn(styles.balance, glupo.isFullBalance && styles.full)}>
-          <p>{formatEnkephalin(glupo.balance)}</p>
+          <p>{formatEnkephalin(balance)}</p>
           <img src={Enkephalin} alt="Enkephalin" width={48} height={24} />
         </div>
       </div>
@@ -128,7 +132,7 @@ function Page() {
       </div>
 
       <div className={styles.name}>
-        <img src={RiskLevelIcons[glupo.riskLevel!]} alt={glupo.riskLevel!} />
+        <img src={RiskLevelIcons[riskLevel]} alt={riskLevel} />
         <p>T-01-23-GLUPO</p>
       </div>
 

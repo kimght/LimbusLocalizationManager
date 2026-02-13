@@ -19,10 +19,10 @@ const resources = {
   ru_RU: { translation: ru_RU },
   zh_Hant: { translation: zh_Hant },
   es_MX: { translation: es_MX },
-  zh_Hans: {translation: zh_Hans},
-  pt_BR: {translation: pt_BR},
-  th_TH: {translation: th_TH},
-  it_IT: {translation: it_IT},
+  zh_Hans: { translation: zh_Hans },
+  pt_BR: { translation: pt_BR },
+  th_TH: { translation: th_TH },
+  it_IT: { translation: it_IT },
 };
 
 // Part III: Language display name

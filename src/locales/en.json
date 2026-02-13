@@ -78,7 +78,8 @@
         "risk": "Risk Level",
         "weapons": "Weapons",
         "armor": "Armor",
-        "reset": "TT2 Protocol"
+        "reset": "TT2 Protocol",
+        "light": "Seed of Light"
       },
 
       "stats": {
@@ -137,6 +138,17 @@
 
       "twilight": "Twilight",
       "twilightDescription": "+10 fortitude;\n+10 prudence;\n+10 temperance;\n+10 justice;\n50% chance to immediately recover from panic."
+    },
+
+    "light-shop": {
+      "button": "Light Shard Shop",
+      "title": "Light Shard Shop",
+      "trinkets": "Trinket collection",
+      "trinket-common": "Common",
+      "trinket-rare": "Rare",
+      "trinket-special": "Special",
+      "trinket-gacha": "Wheel of Fortune",
+      "trinket-gacha-roll": "Roll"
     }
   }
 }

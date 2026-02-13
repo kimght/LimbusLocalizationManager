@@ -98,7 +98,10 @@ pub fn validate_game_directory(directory: &str) -> Result<(), Error> {
         return Err(anyhow::anyhow!("Invalid game directory"));
     }
 
-    let data_path = game_path.parent().unwrap().join("LimbusCompany_Data");
+    let data_path = game_path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("Invalid game path"))?
+        .join("LimbusCompany_Data");
     if !data_path.exists() {
         return Err(anyhow::anyhow!("Invalid game directory"));
     }

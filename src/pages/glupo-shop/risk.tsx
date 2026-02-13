@@ -22,6 +22,7 @@ const RiskLevelIcons = {
 
 function Risk() {
   const { glupo } = rootStore;
+  const { riskLevel } = glupo.gameData!;
 
   const nextRiskLevel = glupo.nextRiskLevel;
 
@@ -32,8 +33,8 @@ function Risk() {
       disabled={!nextRiskLevel || !glupo.canUpgradeRisk}
     >
       <img
-        src={RiskLevelIcons[nextRiskLevel ?? glupo.riskLevel!]}
-        alt={nextRiskLevel ?? glupo.riskLevel!}
+        src={RiskLevelIcons[nextRiskLevel ?? riskLevel]}
+        alt={nextRiskLevel ?? riskLevel}
         className={styles.next}
       />
 
@@ -59,7 +60,9 @@ function Risk() {
         </>
       )}
 
-      <span className={styles.cost}>{formatEnkephalin(glupo.riskUpgradeCost, "max")}</span>
+      <span className={styles.cost}>
+        {formatEnkephalin(glupo.riskUpgradeCost, "max")}
+      </span>
     </button>
   );
 }

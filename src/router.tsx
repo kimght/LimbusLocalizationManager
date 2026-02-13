@@ -5,12 +5,15 @@ import { LocalizationsPage } from "@/pages/localizations";
 import { SettingsPage } from "@/pages/settings";
 import { AboutPage } from "@/pages/about";
 import { LocalizationPage } from "@/pages/localization";
-import { rootStore } from "@/stores";
 import { MainLayout } from "./layouts/main";
 import Fallback from "@/components/fallback/fallback";
 import ErrorBoundary from "@/components/error-boundary/error-boundary";
 import { GlupoPage } from "@/pages/glupo";
 import { GlupoShopPage } from "@/pages/glupo-shop";
+import { GlupoLightPage } from "@/pages/glupo-light";
+import { queryClient } from "@/lib/query-client";
+import { invoke } from "@tauri-apps/api/core";
+import { AppState } from "@/stores/models";
 
 export const routes: RouteObject[] = [
   {
@@ -19,9 +22,11 @@ export const routes: RouteObject[] = [
       {
         element: <MainLayout />,
         errorElement: <ErrorBoundary />,
-        loader: async () => {
-          await rootStore.state.loadState();
-        },
+        loader: () =>
+          queryClient.ensureQueryData({
+            queryKey: ["appState"],
+            queryFn: () => invoke<AppState>("get_app_state"),
+          }),
         hydrateFallbackElement: <Fallback />,
         children: [
           {
@@ -62,6 +67,10 @@ export const routes: RouteObject[] = [
           {
             path: "/about/glupo/shop",
             element: <GlupoShopPage />,
+          },
+          {
+            path: "/about/glupo/light",
+            element: <GlupoLightPage />,
           },
         ],
       },

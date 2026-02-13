@@ -12,6 +12,7 @@ import Risk from "./risk";
 import Weapons from "./weapons";
 import Armor from "./armor";
 import Reset from "./reset";
+import Light from "./light";
 
 function Page() {
   const { glupo } = rootStore;
@@ -25,6 +26,8 @@ function Page() {
     );
   }
 
+  const { balance, loopCount } = glupo.gameData!;
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -35,20 +38,23 @@ function Page() {
 
         <div className={cn(styles.balance, glupo.isFullBalance && styles.full)}>
           <p>
-            {formatEnkephalin(glupo.balance)}/
+            {formatEnkephalin(balance)}/
             {formatEnkephalin(glupo.maxBalance, "∞")}
           </p>
-          <img
-            src={Enkephalin}
-            alt="Enkephalin"
-            width={48}
-            height={24}
-            onClick={glupo.cheat}
-          />
+          <button onClick={glupo.cheat}>
+            <img src={Enkephalin} alt="Enkephalin" width={48} height={24} />
+          </button>
         </div>
       </div>
 
       <div className={styles.content}>
+        {loopCount > 0 && (
+          <div className={styles.section}>
+            <h2>{t("glupo.shop.section.light")}</h2>
+            <Light />
+          </div>
+        )}
+
         <div className={styles.section}>
           <h2>{t("glupo.shop.section.stats")}</h2>
           <Stats />

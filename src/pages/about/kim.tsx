@@ -8,8 +8,8 @@ import KimLL from "../../assets/icons/kim/KimLL.png";
 import KimRR from "../../assets/icons/kim/KimRR.png";
 import KimUU from "../../assets/icons/kim/KimUU.png";
 import KimExplode from "../../assets/icons/kim/KimExplode.gif";
-import KimTalk from "../../assets/audio/anime.mp3";
-import KimExplodeSound from "../../assets/audio/explode.mp3";
+import KimTalk from "../../assets/audio/kim/anime.mp3";
+import KimExplodeSound from "../../assets/audio/kim/explode.mp3";
 
 import styles from "./kim.module.css";
 
@@ -109,14 +109,9 @@ function Kim() {
   }
 
   return (
-    <img
-      role="button"
-      src={KimC}
-      className={styles.kim}
-      onClick={handleClick}
-      alt=""
-      ref={ref}
-    />
+    <button onClick={handleClick}>
+      <img src={KimC} className={styles.kim} alt="" ref={ref} />
+    </button>
   );
 
   function handleClick() {
