@@ -2,7 +2,7 @@
 @reference "../../globals.css";
 
 .container {
-  @apply flex-1 flex relative flex flex-col gap-4;
+  @apply flex-1 flex relative flex-col gap-4;
 }
 
 .section {
@@ -22,8 +22,7 @@
     text-xs font-bold text-limbus-500
     cursor-pointer
     p-1 rounded-md text-center
-    border border-limbus-500
-  ;
+    border border-limbus-500;
 }
 
 .glupo:hover {
