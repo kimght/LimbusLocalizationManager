@@ -63,6 +63,98 @@
     "source": "原始碼",
     "issues": "支援",
     "developer": "開發者",
-    "translator": "翻譯者"
+    "translator": "翻譯者",
+    "glupo": "▸ Lobotomy 2"
+  },
+  "glupo": {
+    "loading": "載入中",
+    "title": "Lobotomy 2",
+    "balance": "PE",
+
+    "shop": {
+      "button": "顯示研究記錄",
+      "title": "研究記錄",
+      "reset": "啟動TT2協議",
+
+      "section": {
+        "stats": "屬性",
+        "risk": "風險等級",
+        "weapons": "武器",
+        "armor": "護甲",
+        "reset": "TT2協議",
+        "light": "光之種子"
+      },
+
+      "stats": {
+        "fortitude": "剛毅",
+        "fortitudeDescription": "等級：{{base}}（總計：{{total}}）\n每次攻擊獲得PE：{{min}} - {{max}}",
+
+        "prudence": "謹慎",
+        "prudenceDescription": "等級：{{base}}（總計：{{total}}）\n最大SP：{{max}}\nSP回復：{{regeneration}}毫秒\n恐慌冷卻：{{panicRestore}}毫秒",
+
+        "temperance": "自律",
+        "temperanceDescription": "等級：{{base}}（總計：{{total}}）\n爆擊機率：{{criticalChance}}\n爆擊倍率：{{criticalMultiplier}}",
+
+        "justice": "正義",
+        "justiceDescription": "等級：{{base}}（總計：{{total}}）\n速度加成：{{speedBonus}}%\n攻擊冷卻：{{cooldown}}毫秒\n武器冷卻：{{weaponCooldown}}毫秒"
+      }
+    },
+
+    "weapons": {
+      "penitence": "懺悔",
+      "penitenceDescription": "爆擊時回復5 SP",
+
+      "redEyes": "赤眼",
+      "redEyesDescription": "+4 剛毅；\n隨機生成最多3隻臨時蜘蛛，每隻提供+1自律。",
+
+      "harvest": "收穫",
+      "harvestDescription": "+2 謹慎；\n若謹慎低於5，每次攻擊獲得額外PE；\n若謹慎等於0，加成更大。",
+
+      "heaven": "天堂",
+      "heavenDescription": "垂直攻擊時獲得額外PE。",
+
+      "magicBullet": "魔彈",
+      "magicBulletDescription": "+3 剛毅；\n+3 謹慎；\n+3 自律；\n+3 正義；\n攻擊不產生PE；\n爆擊時發射魔彈；\n每第7發子彈會瞄準你。",
+
+      "goldRush": "淘金熱",
+      "goldRushDescription": "+4 剛毅；\n-2 自律；\n極快攻擊速度。",
+
+      "smile": "微笑",
+      "smileDescription": "+5 剛毅；\nSP低於一半時變得更強。",
+
+      "twilight": "薄暮",
+      "twilightDescription": "+5 剛毅；\n+5 謹慎；\n+5 自律；\n+5 正義；\n每次爆擊時，獲得+1自律和+1正義，持續2.5秒。"
+    },
+
+    "armor": {
+      "penitence": "懺悔",
+      "penitenceDescription": "+3 剛毅；\n+1 正義；\n恐慌開始時立即恢復20 SP。",
+
+      "redEyes": "赤眼",
+      "redEyesDescription": "+3 剛毅；\n+1 謹慎；\n+4 自律。",
+
+      "harvest": "收穫",
+      "harvestDescription": "+5 剛毅；\n+5 自律；\n-999 謹慎。",
+
+      "heaven": "天堂",
+      "heavenDescription": "+4 剛毅；\n+5 謹慎；\n+6 自律；\n+3 正義。",
+
+      "smile": "微笑",
+      "smileDescription": "+6 剛毅；\n+2 謹慎；\n+2 自律；\n+2 正義；\n恐慌後5秒內，獲得+5剛毅、+5自律和+5正義。",
+
+      "twilight": "薄暮",
+      "twilightDescription": "+10 剛毅；\n+10 謹慎；\n+10 自律；\n+10 正義；\n50%機率立即從恐慌中恢復。"
+    },
+
+    "lightShop": {
+      "button": "光之碎片商店",
+      "title": "光之碎片商店",
+      "trinkets": "飾品收藏",
+      "trinketCommon": "普通",
+      "trinketRare": "稀有",
+      "trinketSpecial": "特殊",
+      "trinketGacha": "命運之輪",
+      "trinketGachaRoll": "抽取"
+    }
   }
 }

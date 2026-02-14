@@ -81,7 +81,8 @@
         "risk": "异想体等级",
         "weapons": "装备",
         "armor": "护甲",
-        "reset": "TT2协议重置"
+        "reset": "TT2协议重置",
+        "light": "光之种子"
       },
 
       "stats": {
@@ -112,6 +113,9 @@
       "heaven": "穿刺极乐",
       "heavenDescription": "暴击时获得额外脑啡肽。",
 
+      "magicBullet": "魔弹",
+      "magicBulletDescription": "勇气+3；\n谨慎+3；\n自律+3；\n正义+3；\n攻击不产生脑啡肽；\n暴击时发射魔弹；\n每第7发子弹会瞄准你。",
+
       "goldRush": "闪金冲锋",
       "goldRushDescription": "勇气+4；\n自律-2；\n极大增加攻击速度。",
 
@@ -140,6 +144,17 @@
 
       "twilight": "Twilight",
       "twilightDescription": "勇气+10；\n谨慎+10；\n自律+10；\n正义+10；\n陷入恐慌时有50%概率直接恢复。"
+    },
+
+    "lightShop": {
+      "button": "光之碎片商店",
+      "title": "光之碎片商店",
+      "trinkets": "饰品收藏",
+      "trinketCommon": "普通",
+      "trinketRare": "稀有",
+      "trinketSpecial": "特殊",
+      "trinketGacha": "命运之轮",
+      "trinketGachaRoll": "抽取"
     }
   }
 }

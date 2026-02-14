@@ -6,7 +6,7 @@ import { randomRangeInt } from "../utils";
 
 export class MagicBullet implements Weapon {
   public readonly id = WeaponIds.MagicBullet;
-  public readonly name = "glupo.weapons.magic-bullet";
+  public readonly name = "glupo.weapons.magicBullet";
   public readonly description = "glupo.weapons.magicBulletDescription";
   public readonly image = "weapon.magic-bullet";
   public readonly cooldown = 1000;
@@ -16,10 +16,10 @@ export class MagicBullet implements Weapon {
   public readonly chainPosition = { x: 370, y: 32 };
 
   public readonly stats: Stats = {
-    fortitude: 4,
-    prudence: 4,
-    temperance: 4,
-    justice: 4,
+    fortitude: 3,
+    prudence: 3,
+    temperance: 3,
+    justice: 3,
   };
 
   // This weapon hit gives no boxes, but on critical hit,

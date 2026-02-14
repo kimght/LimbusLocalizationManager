@@ -81,7 +81,8 @@
         "risk": "ระดับความอันตราย",
         "weapons": "อาวุธ",
         "armor": "เกราะ",
-        "reset": "TT2 โปรโตคอล"
+        "reset": "TT2 โปรโตคอล",
+        "light": "เมล็ดแห่งแสง"
       },
 
       "stats": {
@@ -112,6 +113,9 @@
       "heaven": "Heaven",
       "heavenDescription": "มอบโบนัส PE เมื่อโจมตีเป็นแนวตั้ง",
 
+      "magicBullet": "Magic Bullet",
+      "magicBulletDescription": "+3 ความอดทน;\n+3 ความรอบคอบ;\n+3 ความยับยั้งชั่งใจ;\n+3 ความเป็นธรรม;\nไม่สร้าง PE เมื่อโจมตีโดน;\nเมื่อโจมตีติดคริติคอล ยิงกระสุนวิเศษ;\nทุกกระสุนที่ 7 จะเล็งมาที่คุณ",
+
       "goldRush": "Gold Rush",
       "goldRushDescription": "+4 ความอดทน;\n-2 ความยับยั้งชั่งใจ;\nโจมตีเร็วเป็นอย่างมาก",
 
@@ -140,6 +144,17 @@
 
       "twilight": "Twilight",
       "twilightDescription": "+10 ความอดทน;\n+10 ความยับยั้งชั่งใจ;\n+10 ความยับยั้งชั่งใจ;\n+10 ความเป็นธรรม;\n50% chance to immediately recover from panic."
+    },
+
+    "lightShop": {
+      "button": "ร้านค้าเศษแสง",
+      "title": "ร้านค้าเศษแสง",
+      "trinkets": "คอลเล็คชั่นเครื่องรางของขลัง",
+      "trinketCommon": "ธรรมดา",
+      "trinketRare": "หายาก",
+      "trinketSpecial": "พิเศษ",
+      "trinketGacha": "วงล้อแห่งโชคชะตา",
+      "trinketGachaRoll": "หมุน"
     }
   }
 }

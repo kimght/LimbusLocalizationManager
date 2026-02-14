@@ -113,6 +113,9 @@
       "heaven": "Heaven",
       "heavenDescription": "Bonus PE for vertical hits.",
 
+      "magicBullet": "Magic Bullet",
+      "magicBulletDescription": "+3 fortitude;\n+3 wisdom;\n+3 temperance;\n+3 justice;\nDoes not generate PE on hit;\nOn critical hit, shoot a magic bullet;\nEvery 7th bullet targets you.",
+
       "goldRush": "Gold Rush",
       "goldRushDescription": "+4 fortitude;\n-2 temperance;\nExtremely fast attack speed.",
 
@@ -143,15 +146,15 @@
       "twilightDescription": "+10 fortitude;\n+10 prudence;\n+10 temperance;\n+10 justice;\n50% chance to immediately recover from panic."
     },
 
-    "light-shop": {
+    "lightShop": {
       "button": "Light Shard Shop",
       "title": "Light Shard Shop",
       "trinkets": "Trinket collection",
-      "trinket-common": "Common",
-      "trinket-rare": "Rare",
-      "trinket-special": "Special",
-      "trinket-gacha": "Wheel of Fortune",
-      "trinket-gacha-roll": "Roll"
+      "trinketCommon": "Common",
+      "trinketRare": "Rare",
+      "trinketSpecial": "Special",
+      "trinketGacha": "Wheel of Fortune",
+      "trinketGachaRoll": "Roll"
     }
   }
 }

@@ -13,7 +13,7 @@ function Light() {
 
   return (
     <NavLink className={styles.container} to="/about/glupo/light">
-      <p>{t("glupo.light-shop.button")}</p>
+      <p>{t("glupo.lightShop.button")}</p>
       <div className={styles.shards}>
         <span>{lightShards}</span>
         <img src={LightShard} alt="Light Shard" />

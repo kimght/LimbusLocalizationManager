@@ -28,7 +28,7 @@ function Page() {
       <div className={styles.header}>
         <NavLink to="/about/glupo/shop" replace className={styles.back}>
           <ChevronsLeft className="w-6 h-6 shrink-0" />
-          <h1>{t("glupo.light-shop.title")}</h1>
+          <h1>{t("glupo.lightShop.title")}</h1>
         </NavLink>
 
         <div className={styles.balance}>
@@ -39,12 +39,12 @@ function Page() {
 
       <div className={styles.content}>
         <div className={styles.section}>
-          {/* <h2>{t("glupo.light-shop.trinket-gacha")}</h2> */}
+          {/* <h2>{t("glupo.lightShop.trinket-gacha")}</h2> */}
           <Gacha />
         </div>
 
         <div className={styles.section}>
-          {/* <h2>{t("glupo.light-shop.trinkets")}</h2> */}
+          {/* <h2>{t("glupo.lightShop.trinkets")}</h2> */}
           <Trinkets />
         </div>
 

@@ -14,7 +14,7 @@ function Trinkets() {
 
   return (
     <div className={styles.container}>
-      <h2 className={styles.title}>{t("glupo.light-shop.trinket-special")}</h2>
+      <h2 className={styles.title}>{t("glupo.lightShop.trinketSpecial")}</h2>
       <div className={styles.grid}>
         {trinketList[TrinketRarity.Special].map((trinket) => (
           <button
@@ -30,7 +30,7 @@ function Trinkets() {
           </button>
         ))}
       </div>
-      <h2 className={styles.title}>{t("glupo.light-shop.trinket-rare")}</h2>
+      <h2 className={styles.title}>{t("glupo.lightShop.trinketRare")}</h2>
       <div className={styles.grid}>
         {trinketList[TrinketRarity.Rare].map((trinket) => (
           <button
@@ -46,7 +46,7 @@ function Trinkets() {
           </button>
         ))}
       </div>
-      <h2 className={styles.title}>{t("glupo.light-shop.trinket-common")}</h2>
+      <h2 className={styles.title}>{t("glupo.lightShop.trinketCommon")}</h2>
       <div className={styles.grid}>
         {trinketList[TrinketRarity.Common].map((trinket) => (
           <button

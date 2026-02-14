@@ -81,7 +81,8 @@
         "risk": "Livello di Rischio",
         "weapons": "Armi",
         "armor": "Tute",
-        "reset": "TT2 Protocol"
+        "reset": "TT2 Protocol",
+        "light": "Seme di Luce"
       },
 
       "stats": {
@@ -112,6 +113,9 @@
       "heaven": "Paradiso",
       "heavenDescription": "EP bonus per colpi verticali.",
 
+      "magicBullet": "Proiettile Magico",
+      "magicBulletDescription": "+3 fortezza;\n+3 prudenza;\n+3 temperanza;\n+3 giustizia;\nNon genera EP al colpo;\nSu colpo critico, spara un proiettile magico;\nOgni 7º proiettile ti prende di mira.",
+
       "goldRush": "Febbre dell'Oro",
       "goldRushDescription": "+4 fortezza;\n-2 temperanza;\nVelocità di attacco estremamente alta.",
 
@@ -140,6 +144,17 @@
 
       "twilight": "Crepuscolo",
       "twilightDescription": "+10 fortezza;\n+10 prudenza;\n+10 temperanza;\n+10 giustizia;\n50% di probabilità di recuperare dal panico."
+    },
+
+    "lightShop": {
+      "button": "Negozio Frammenti di Luce",
+      "title": "Negozio Frammenti di Luce",
+      "trinkets": "Collezione di ciondoli",
+      "trinketCommon": "Comune",
+      "trinketRare": "Raro",
+      "trinketSpecial": "Speciale",
+      "trinketGacha": "Ruota della Fortuna",
+      "trinketGachaRoll": "Gira"
     }
   }
 }

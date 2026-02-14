@@ -20,6 +20,7 @@ export const TrinketIds = {
   Ayin: "trinket.ayin",
   FaustDerp: "trinket.faust-derp",
   IshmaelSad: "trinket.ishmael-sad",
+  ArayaWatermellon: "trinket.araya-watermellon",
 } as const;
 
 export type TrinketId = (typeof TrinketIds)[keyof typeof TrinketIds];
@@ -113,5 +114,9 @@ export const trinkets = {
   [TrinketIds.IshmaelSad]: {
     image: "trinket.ishmael-sad",
     rarity: TrinketRarity.Rare,
+  },
+  [TrinketIds.ArayaWatermellon]: {
+    image: "trinket.araya-watermellon",
+    rarity: TrinketRarity.Special,
   },
 } as const satisfies Record<TrinketId, Trinket>;

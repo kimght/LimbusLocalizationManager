@@ -61,6 +61,7 @@ import TrinketCopiumElder from "@/assets/icons/glupo/trinkets/copium-elder.webp"
 import TrinketFaustDerp from "@/assets/icons/glupo/trinkets/faust-derp.webp";
 import TrinketIshmaelSad from "@/assets/icons/glupo/trinkets/ishmael-sad.webp";
 import TrinketAyin from "@/assets/icons/glupo/trinkets/ayin.webp";
+import TrinketArayaWatermellon from "@/assets/icons/glupo/trinkets/araya-watermellon.webp";
 
 import GlupoIdleSound from "@/assets/audio/glupo/glupo.idle.mp3";
 import GlupoHurt1Sound from "@/assets/audio/glupo/glupo.hurt-1.mp3";
@@ -142,6 +143,7 @@ const imageAssets = {
   "trinket.ayin": TrinketAyin,
   "trinket.faust-derp": TrinketFaustDerp,
   "trinket.ishmael-sad": TrinketIshmaelSad,
+  "trinket.araya-watermellon": TrinketArayaWatermellon,
 } as const;
 
 export type ImageAssetId = keyof typeof imageAssets;

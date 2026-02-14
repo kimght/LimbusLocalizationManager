@@ -81,7 +81,8 @@
         "risk": "Nivel de Riesgo",
         "weapons": "Armas",
         "armor": "Armadura",
-        "reset": "Protocolo TT2"
+        "reset": "Protocolo TT2",
+        "light": "Semilla de Luz"
       },
 
       "stats": {
@@ -112,6 +113,9 @@
       "heaven": "Paraíso",
       "heavenDescription": "PE extra por golpes verticales.",
 
+      "magicBullet": "Bala Mágica",
+      "magicBulletDescription": "+3 fortitud;\n+3 prudencia;\n+3 templanza;\n+3 justicia;\nNo genera PE al golpear;\nEn golpe crítico, dispara una bala mágica;\nCada 7ª bala te apunta a ti.",
+
       "goldRush": "Fiebre del Oro",
       "goldRushDescription": "Fortitud +4;\nTemplanza -2;\nVelocidad de ataque extremadamente rápida.",
 
@@ -140,6 +144,17 @@
 
       "twilight": "Crepúsculo",
       "twilightDescription": "Fortitud +10;\n+Prudencia +10;\nTemplanza +10;\nJusticia +10;\n50% de probabilidad de recuperarse inmediatamente del pánico."
+    },
+
+    "lightShop": {
+      "button": "Tienda de Fragmentos de Luz",
+      "title": "Tienda de Fragmentos de Luz",
+      "trinkets": "Colección de abalorios",
+      "trinketCommon": "Común",
+      "trinketRare": "Raro",
+      "trinketSpecial": "Especial",
+      "trinketGacha": "Rueda de la Fortuna",
+      "trinketGachaRoll": "Girar"
     }
   }
 }

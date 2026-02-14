@@ -177,7 +177,7 @@ function Gacha() {
           isSpinning || glupo.gameData!.lightShards < glupo.trinketRollCost
         }
       >
-        <p>{t("glupo.light-shop.trinket-gacha-roll")}</p>
+        <p>{t("glupo.lightShop.trinketGachaRoll")}</p>
 
         <span>
           {glupo.trinketRollCost}
