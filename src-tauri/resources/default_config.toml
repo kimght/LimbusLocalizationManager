@@ -1,3 +1,4 @@
+config_version = 1
 selected_source = "github"
 
 [installed]
@@ -5,6 +6,14 @@ selected_source = "github"
 [sources.github]
 name = "Github"
 url = "https://gist.githubusercontent.com/kimght/322a2779922ab5a5f96ff7f7dc3f8e82/raw/localizations.json"
+
+[sources.smallyuan-mirror]
+name = "Smallyuan's Mirror"
+url = "https://llc.smallyuan.dev/localizations/localizations.json"
+
+[sources.russian-mirror]
+name = "Russian Mirror"
+url = "https://limbus-localizations.duckdns.org/localizations/localizations.json"
 
 # game_directory = ""
 # language = ""

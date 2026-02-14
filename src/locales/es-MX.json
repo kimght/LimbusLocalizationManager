@@ -14,7 +14,8 @@
     "title": "Ajustes",
     "gameDirectory": "Directorio personalizado del juego",
     "gameDirectoryDefault": "[Usando por defecto]",
-    "openLogs": "Registros"
+    "openLogs": "Registros",
+    "openConfig": "Config"
   },
   "localization": {
     "authors": "Autores",

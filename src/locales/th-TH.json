@@ -14,7 +14,8 @@
     "title": "การตั้งค่า",
     "gameDirectory": "ตำแหน่งติดตั้งเกม",
     "gameDirectoryDefault": "[กำลังใช้ตำแหน่งไฟล์พื้นฐาน]",
-    "openLogs": "Logs"
+    "openLogs": "Logs",
+    "openConfig": "Config"
   },
   "localization": {
     "authors": "ผู้สร้าง",

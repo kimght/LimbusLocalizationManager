@@ -4,6 +4,7 @@ export interface LocalizationSource {
 }
 
 export interface AppSettings {
+  config_version: number;
   sources: Record<string, LocalizationSource>;
   selected_source: string | null;
   game_directory: string | null;

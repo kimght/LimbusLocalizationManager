@@ -14,7 +14,8 @@
     "title": "Настройки",
     "gameDirectory": "Папка с игрой",
     "gameDirectoryDefault": "[Используется стандартная]",
-    "openLogs": "Логи"
+    "openLogs": "Логи",
+    "openConfig": "Конфиг"
   },
   "localization": {
     "authors": "Авторы",

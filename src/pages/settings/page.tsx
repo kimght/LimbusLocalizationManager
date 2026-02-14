@@ -1,11 +1,11 @@
 import styles from "./page.module.css";
-import { ArrowDown, Folder, FolderOpen, X } from "lucide-react";
+import { ArrowDown, FileText, Folder, FolderOpen, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toastError } from "@/components/toast/toast";
 import { languageNames } from "@/i18n";
 import { useLocation } from "react-router";
-import { cn, openLogDir } from "@/utils";
+import { cn, openConfigDir, openLogDir } from "@/utils";
 import {
   useAppState,
   useLanguage,
@@ -94,15 +94,17 @@ function Page() {
             )}
           </div>
         </div>
+      </div>
 
-        <div className={styles.section}>
-          <h2>{t("settings.openLogs")}</h2>
-          <div>
-            <button className={styles.button} onClick={openLogDir}>
-              <FolderOpen />
-            </button>
-          </div>
-        </div>
+      <div className={styles.files}>
+        <button className={styles.labeledButton} onClick={openLogDir}>
+          <FolderOpen size={16} />
+          {t("settings.openLogs")}
+        </button>
+        <button className={styles.labeledButton} onClick={openConfigDir}>
+          <FileText size={16} />
+          {t("settings.openConfig")}
+        </button>
       </div>
     </div>
   );

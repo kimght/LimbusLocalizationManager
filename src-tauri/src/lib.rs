@@ -446,10 +446,7 @@ async fn update_and_play(
 
         *remote_localizations_guard = Some(remote_localizations_payload.clone());
         app_handle
-            .emit(
-                "remote_localizations_updated",
-                remote_localizations_payload,
-            )
+            .emit("remote_localizations_updated", remote_localizations_payload)
             .map_err(|e| e.to_string())?;
     }
 

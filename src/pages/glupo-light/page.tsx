@@ -48,13 +48,9 @@ function Page() {
           <Trinkets />
         </div>
 
-        <button
-          onClick={() =>
-            glupo.updateGameData({ boughtTrinkets: [], selectedTrinket: null })
-          }
-        >
-          Reset Trinkets
-        </button>
+        {glupo.isDev && (
+          <button onClick={glupo.resetTrinkets}>Reset Trinkets</button>
+        )}
       </div>
     </div>
   );

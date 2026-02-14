@@ -489,8 +489,12 @@ export class GlupoStore {
     });
   }
 
+  public get isDev() {
+    return import.meta.env.DEV;
+  }
+
   public cheat() {
-    if (!import.meta.env.DEV) {
+    if (!this.isDev) {
       return;
     }
 
@@ -502,6 +506,14 @@ export class GlupoStore {
         : balance + 1_000_000,
       lightShards: 90,
     });
+  }
+
+  public resetTrinkets() {
+    if (!this.isDev) {
+      return;
+    }
+
+    this.updateGameData({ boughtTrinkets: [], selectedTrinket: null });
   }
 
   public get resetCost() {
@@ -527,7 +539,7 @@ export class GlupoStore {
     this.gameData = {
       ...defaultGameData,
 
-      lightShards: lightShards + Math.floor(Math.random() * 3 + 1) * 3,
+      lightShards: lightShards + Math.floor(Math.random() * 5 + 1) * 3,
       boughtTrinkets,
       selectedTrinket,
       loopCount: loopCount + 1,

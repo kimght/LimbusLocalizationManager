@@ -14,7 +14,8 @@
     "title": "設定",
     "gameDirectory": "自訂遊戲目錄",
     "gameDirectoryDefault": "[使用預設值]",
-    "openLogs": "日誌"
+    "openLogs": "日誌",
+    "openConfig": "設定檔"
   },
   "localization": {
     "authors": "作者",

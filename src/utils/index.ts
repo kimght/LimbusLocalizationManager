@@ -1,6 +1,6 @@
 import clsx, { type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { appLogDir } from "@tauri-apps/api/path";
+import { appConfigDir, appLogDir } from "@tauri-apps/api/path";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 
 export function cn(...inputs: ClassValue[]) {
@@ -19,5 +19,20 @@ export function formatEnkephalin(number?: number | null, defaultText?: string) {
 
 export async function openLogDir() {
   const dir = await appLogDir();
-  await revealItemInDir(dir);
+
+  try {
+    await revealItemInDir(`${dir}/LimbusLocalizationManager.log`);
+  } catch {
+    await revealItemInDir(dir);
+  }
+}
+
+export async function openConfigDir() {
+  const dir = await appConfigDir();
+
+  try {
+    await revealItemInDir(`${dir}/config.toml`);
+  } catch {
+    await revealItemInDir(dir);
+  }
 }

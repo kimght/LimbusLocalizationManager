@@ -14,7 +14,8 @@
     "title": "设置",
     "gameDirectory": "边狱公司游戏路径",
     "gameDirectoryDefault": "[使用默认值]",
-    "openLogs": "日志"
+    "openLogs": "日志",
+    "openConfig": "配置"
   },
   "localization": {
     "authors": "作者",

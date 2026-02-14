@@ -14,7 +14,8 @@
     "title": "Opzioni",
     "gameDirectory": "Directory gioco personalizzata",
     "gameDirectoryDefault": "[Usa default]",
-    "openLogs": "Log"
+    "openLogs": "Log",
+    "openConfig": "Config"
   },
   "localization": {
     "authors": "Autori",
