@@ -13,7 +13,8 @@
     "source": "Источник",
     "title": "Настройки",
     "gameDirectory": "Папка с игрой",
-    "gameDirectoryDefault": "[Используется стандартная]"
+    "gameDirectoryDefault": "[Используется стандартная]",
+    "openLogs": "Логи"
   },
   "localization": {
     "authors": "Авторы",
@@ -39,7 +40,8 @@
     "somethingWentWrong": "Что-то пошло не так!",
     "updateAndPlay": "Ошибка при обновлении локализации!",
     "uninstall": "Не удалось удалить {{localization}}",
-    "repair": "Не удалось переустановить {{localization}}"
+    "repair": "Не удалось переустановить {{localization}}",
+    "openLogs": "Открыть логи"
   },
   "log": {
     "started": "Проверяю обновления...",

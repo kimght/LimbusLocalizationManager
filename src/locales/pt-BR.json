@@ -13,7 +13,8 @@
     "source": "Fonte",
     "title": "Configurações",
     "gameDirectory": "Diretório do jogo customizado",
-    "gameDirectoryDefault": "[Usar padrão]"
+    "gameDirectoryDefault": "[Usar padrão]",
+    "openLogs": "Logs"
   },
   "localization": {
     "authors": "Autores",
@@ -39,7 +40,8 @@
     "somethingWentWrong": "Alguma coisa deu errado!",
     "updateAndPlay": "Falha na atualização!",
     "uninstall": "Falha em desinstalar {{localization}}",
-    "repair": "Falha em reparar {{localization}}"
+    "repair": "Falha em reparar {{localization}}",
+    "openLogs": "Abrir logs"
   },
   "log": {
     "started": "Procurando por atualizações...",

@@ -27,6 +27,14 @@
   @apply !text-danger !border-danger;
 }
 
+.actions {
+  @apply flex items-center gap-1 shrink-0;
+}
+
 .toast button {
   @apply btn;
+}
+
+.action {
+  @apply text-xs underline underline-offset-2;
 }

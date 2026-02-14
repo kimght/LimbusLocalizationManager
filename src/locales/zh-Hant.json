@@ -13,7 +13,8 @@
     "source": "來源",
     "title": "設定",
     "gameDirectory": "自訂遊戲目錄",
-    "gameDirectoryDefault": "[使用預設值]"
+    "gameDirectoryDefault": "[使用預設值]",
+    "openLogs": "日誌"
   },
   "localization": {
     "authors": "作者",
@@ -39,7 +40,8 @@
     "somethingWentWrong": "發生錯誤！",
     "updateAndPlay": "更新失敗！",
     "uninstall": "解除安裝 {{localization}} 失敗",
-    "repair": "修復 {{localization}} 失敗"
+    "repair": "修復 {{localization}} 失敗",
+    "openLogs": "開啟日誌"
   },
   "log": {
     "started": "正在檢查更新…",

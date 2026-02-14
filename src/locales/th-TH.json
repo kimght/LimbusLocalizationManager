@@ -13,7 +13,8 @@
     "source": "เว็บ",
     "title": "การตั้งค่า",
     "gameDirectory": "ตำแหน่งติดตั้งเกม",
-    "gameDirectoryDefault": "[กำลังใช้ตำแหน่งไฟล์พื้นฐาน]"
+    "gameDirectoryDefault": "[กำลังใช้ตำแหน่งไฟล์พื้นฐาน]",
+    "openLogs": "Logs"
   },
   "localization": {
     "authors": "ผู้สร้าง",
@@ -39,7 +40,8 @@
     "somethingWentWrong": "มีอะไรก็ไม่รู้ผิดพลาด!",
     "updateAndPlay": "Update failed!",
     "uninstall": "ถอนการติดตั้งล้มเหลว {{localization}}",
-    "repair": "ซ่อมไฟล์ล้มเหลว {{localization}}"
+    "repair": "ซ่อมไฟล์ล้มเหลว {{localization}}",
+    "openLogs": "Open Logs"
   },
   "log": {
     "started": "กำลังเช็คว่ามีอัพเดตหรือไม่...",

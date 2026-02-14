@@ -13,7 +13,8 @@
     "source": "Source",
     "title": "Settings",
     "gameDirectory": "Custom game directory",
-    "gameDirectoryDefault": "[Using default]"
+    "gameDirectoryDefault": "[Using default]",
+    "openLogs": "Logs"
   },
   "localization": {
     "authors": "Authors",
@@ -39,7 +40,8 @@
     "somethingWentWrong": "Something went wrong!",
     "updateAndPlay": "Update failed!",
     "uninstall": "Failed to uninstall {{localization}}",
-    "repair": "Failed to repair {{localization}}"
+    "repair": "Failed to repair {{localization}}",
+    "openLogs": "Open Logs"
   },
   "log": {
     "started": "Looking for updates...",

@@ -13,7 +13,8 @@
     "source": "网络源",
     "title": "设置",
     "gameDirectory": "边狱公司游戏路径",
-    "gameDirectoryDefault": "[使用默认值]"
+    "gameDirectoryDefault": "[使用默认值]",
+    "openLogs": "日志"
   },
   "localization": {
     "authors": "作者",
@@ -39,7 +40,8 @@
     "somethingWentWrong": "有些东西出问题了！",
     "updateAndPlay": "更新失败！",
     "uninstall": "卸载 {{localization}} 失败",
-    "repair": "修复 {{localization}} 失败"
+    "repair": "修复 {{localization}} 失败",
+    "openLogs": "打开日志"
   },
   "log": {
     "started": "正在检查更新……",
