@@ -74,6 +74,7 @@ export function useUpdateSettings() {
       invoke("update_settings", { newSettings }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appState"] });
+      queryClient.invalidateQueries({ queryKey: ["localizations"] });
     },
   });
 }

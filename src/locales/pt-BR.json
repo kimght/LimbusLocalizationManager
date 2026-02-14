@@ -32,7 +32,8 @@
     "loading": "Carregando localizações",
     "error": "Falha em obter as localizações!",
     "tryAgain": "Tente novamente",
-    "changeSource": "Mudar fonte"
+    "changeSource": "Mudar fonte",
+    "refresh": "Atualizar"
   },
   "error": {
     "install": "Falha ao instalar {{localization}}",

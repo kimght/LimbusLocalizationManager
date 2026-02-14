@@ -32,7 +32,8 @@
     "loading": "Loading localizations",
     "error": "Failed to fetch localizations!",
     "tryAgain": "Try again",
-    "changeSource": "Change source"
+    "changeSource": "Change source",
+    "refresh": "Refresh"
   },
   "error": {
     "install": "Failed to install {{localization}}",

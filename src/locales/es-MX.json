@@ -32,7 +32,8 @@
     "loading": "Cargando localizaciones",
     "error": "¡No se pudo cargar la lista de localizaciones!",
     "tryAgain": "Intentar de nuevo",
-    "changeSource": "Cambiar orígen"
+    "changeSource": "Cambiar orígen",
+    "refresh": "Actualizar"
   },
   "error": {
     "install": "Instalación de {{localization}} fallida",

@@ -32,7 +32,8 @@
     "loading": "Caricamento localizzazioni",
     "error": "Fallito nel trovare localizzazioni!",
     "tryAgain": "Riprova",
-    "changeSource": "Cambia Origine"
+    "changeSource": "Cambia Origine",
+    "refresh": "Aggiorna"
   },
   "error": {
     "install": "Fallito nell'installare {{localization}}",

@@ -32,7 +32,8 @@
     "loading": "正在載入本地化語言",
     "error": "取得本地化語言失敗！",
     "tryAgain": "重試",
-    "changeSource": "更改來源"
+    "changeSource": "更改來源",
+    "refresh": "重新整理"
   },
   "error": {
     "install": "安裝 {{localization}} 失敗",

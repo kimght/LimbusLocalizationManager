@@ -32,7 +32,8 @@
     "loading": "正在载入语言包",
     "error": "获取语言包失败！",
     "tryAgain": "重试",
-    "changeSource": "更改网络源"
+    "changeSource": "更改网络源",
+    "refresh": "刷新"
   },
   "error": {
     "install": "安装 {{localization}} 失败",

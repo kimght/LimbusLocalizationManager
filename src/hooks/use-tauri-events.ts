@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
 import i18n from "@/i18n";
 import { AppState } from "@/stores/models";
+import { useAppState } from "@/hooks/use-app-state";
 
 export function useTauriQuerySync() {
   const queryClient = useQueryClient();
@@ -18,7 +19,10 @@ export function useTauriQuerySync() {
 
     unlisteners.push(
       listen("remote_localizations_updated", () => {
-        queryClient.invalidateQueries({ queryKey: ["localizations"] });
+        queryClient.invalidateQueries({
+          queryKey: ["localizations"],
+          refetchType: "none",
+        });
       })
     );
 
@@ -31,8 +35,7 @@ export function useTauriQuerySync() {
 }
 
 export function useLanguageSync() {
-  const queryClient = useQueryClient();
-  const appState = queryClient.getQueryData<AppState>(["appState"]);
+  const { data: appState } = useAppState();
   const language = appState?.settings?.language;
 
   useEffect(() => {

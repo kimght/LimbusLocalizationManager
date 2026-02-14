@@ -32,7 +32,8 @@
     "loading": "กำลังโหลดไฟล์แปล",
     "error": "ดึงไฟล์แปลล้มเหลว!",
     "tryAgain": "ลองอีกครั้ง",
-    "changeSource": "เปลี่ยนเว็บ"
+    "changeSource": "เปลี่ยนเว็บ",
+    "refresh": "รีเฟรช"
   },
   "error": {
     "install": "ติดตั้ง {{localization}} ล้มเหลว",
