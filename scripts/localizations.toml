@@ -177,14 +177,12 @@ repo = "Laetaria/LocalizeLimbusIT"
 name = "Espresso Office"
 authors = [
   "flowerssummerr",
-  "Eremitaviola",
-  "Ballastedmarco91",
-  "KoilaKarpaKoi",
-  "GhostyTricker",
-  "Cimone",
-  "SirPapera",
-  "Veldia",
-  "Dottore"
+  "Ervi",
+  "Koi",
+  "Ghosty",
+  "Pizz4",
+  "Techie",
+  "Papera"
 ]
 flag = "IT"
 icon = "https://raw.githubusercontent.com/Laetaria/UfficioEspresso/main/IMG_0570.png"
