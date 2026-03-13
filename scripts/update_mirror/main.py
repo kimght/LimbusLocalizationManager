@@ -16,6 +16,7 @@ from typing import TypedDict, Literal, cast, BinaryIO
 from argparse import ArgumentParser
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+CONFIG_URL = os.environ.get("CONFIG_URL")
 MINIO_ENDPOINT = os.environ["MINIO_ENDPOINT"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
@@ -222,6 +223,51 @@ def create_release(
     }
 
 
+def load_config() -> dict | None:
+    if CONFIG_URL:
+        try:
+            logging.info(f"Fetching config from {CONFIG_URL}")
+            response = requests.get(CONFIG_URL, headers=get_github_headers())
+            response.raise_for_status()
+            return toml.loads(response.text)
+        except Exception as e:
+            logging.warning(f"Failed to fetch remote config: {e}")
+
+    script_dir = Path(__file__).parent.absolute()
+    config_path = script_dir / "localizations.toml"
+
+    if not config_path.exists() or not config_path.is_file():
+        logging.error(f"Config file not found: {config_path}")
+        return None
+
+    logging.info(f"Using local config: {config_path}")
+    with config_path.open("r") as f:
+        return toml.load(f)
+
+
+def cleanup_outdated(
+    client: minio.Minio, processed: dict[str, Localization]
+) -> None:
+    expected_objects: set[str] = {"localizations.json"}
+    for loc in processed.values():
+        loc_id = loc["id"]
+        expected_objects.add(f"{loc_id}/files/{loc['version']}.zip")
+        for font in loc["fonts"]:
+            expected_objects.add(f"{loc_id}/fonts/{font['hash']}")
+
+    existing_objects = client.list_objects(MINIO_BUCKET, recursive=True)
+
+    removed = 0
+    for obj in existing_objects:
+        if obj.object_name and obj.object_name not in expected_objects:
+            logging.info(f"Removing outdated object: {obj.object_name}")
+            client.remove_object(MINIO_BUCKET, obj.object_name)
+            removed += 1
+
+    if removed:
+        logging.info(f"Cleaned up {removed} outdated object(s)")
+
+
 def do_update() -> int:
     logging.info("Checking for localizations updates")
 
@@ -232,15 +278,9 @@ def do_update() -> int:
         secure=False,
     )
 
-    script_dir = Path(__file__).parent.absolute()
-    config_path = script_dir / "localizations.toml"
-
-    if not config_path.exists() or not config_path.is_file():
-        logging.error(f"Config file not found: {config_path}")
+    config = load_config()
+    if config is None:
         return 1
-
-    with config_path.open("r") as f:
-        config = toml.load(f)
 
     current = requests.get(f"{MINIO_PUBLIC_URL}/{MINIO_BUCKET}/localizations.json")
 
@@ -269,6 +309,8 @@ def do_update() -> int:
 
             if current_version is not None:
                 processed[localization_id] = current_localizations[localization_id]
+
+    cleanup_outdated(client, processed)
 
     if processed == current_localizations:
         logging.info("No changes to the localizations")

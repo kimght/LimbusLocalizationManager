@@ -16,6 +16,7 @@ from argparse import ArgumentParser
 GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 GITHUB_GIST_ID = os.environ["GITHUB_GIST_ID"]
 GITHUB_GIST_OWNER = os.environ["GITHUB_GIST_OWNER"]
+CONFIG_URL = os.environ.get("CONFIG_URL")
 
 
 class UpToDateError(Exception):
@@ -164,18 +165,34 @@ def create_release(
     }
 
 
-def do_update() -> int:
-    logging.info("Checking for localizations updates")
+def load_config() -> dict | None:
+    if CONFIG_URL:
+        try:
+            logging.info(f"Fetching config from {CONFIG_URL}")
+            response = requests.get(CONFIG_URL, headers=get_github_headers())
+            response.raise_for_status()
+            return toml.loads(response.text)
+        except Exception as e:
+            logging.warning(f"Failed to fetch remote config: {e}")
 
     script_dir = Path(__file__).parent.absolute()
     config_path = script_dir / "localizations.toml"
 
     if not config_path.exists() or not config_path.is_file():
         logging.error(f"Config file not found: {config_path}")
-        return 1
+        return None
 
+    logging.info(f"Using local config: {config_path}")
     with config_path.open("r") as f:
-        config = toml.load(f)
+        return toml.load(f)
+
+
+def do_update() -> int:
+    logging.info("Checking for localizations updates")
+
+    config = load_config()
+    if config is None:
+        return 1
 
     current = requests.get(
         f"https://gist.githubusercontent.com/{GITHUB_GIST_OWNER}/{GITHUB_GIST_ID}/raw/localizations.json",
