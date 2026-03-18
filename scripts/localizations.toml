@@ -70,6 +70,29 @@ icon = "https://github.com/Dreams-Office/LimbusCompanySpanishTranslationTeam/raw
 format = "auto"
 fonts = []
 
+[es-TraduccionesSapinking]
+repo = "AkkoTheFixer/Traducciones-Sapinking"
+name = "Traducciones Sapinking"
+authors = [
+  "Danshe",
+  "uwu del pan",
+  "Traductores",
+  "Big H",
+  "cosotomate",
+  "Don Pendejote",
+  "el master",
+  "Hatasawer/Agüita",
+  "Joandry",
+  "Joshua",
+  "Patoxi",
+  "Shion",
+  "aple"
+]
+flag = "MX"
+icon = "https://github.com/AkkoTheFixer/Traducciones-Sapinking/raw/main/logo.png"
+format = "auto"
+fonts = []
+
 [hant-LTM]
 repo = "LimbusTraditionalMandarin/storyline"
 name = "Limbus Traditional Mandarin"
