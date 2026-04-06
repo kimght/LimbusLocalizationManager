@@ -137,7 +137,7 @@ repo = "LocalizeLimbusCompany/LocalizeLimbusCompany"
 name = "Localize Limbus Company"
 authors = ["Limbus Localize Company"]
 flag = "CN"
-icon = "https://cdn.zeroasso.top/img/logo.png"
+icon = "https://www.zeroasso.top/img/logo.png"
 format = "auto"
 
 [[zh-CN.fonts]]
