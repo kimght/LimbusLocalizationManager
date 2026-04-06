@@ -196,19 +196,13 @@ format = "auto"
 fonts = []
 
 [it-espresso]
-repo = "Laetaria/LocalizeLimbusIT"
+repo = "louzhee/LocalizeLimbusIT"
 name = "Espresso Office"
 authors = [
-  "flowerssummerr",
-  "Ervi",
-  "Koi",
-  "Ghosty",
-  "Pizz4",
-  "Techie",
-  "Papera"
+  "Espresso Office"
 ]
 flag = "IT"
-icon = "https://raw.githubusercontent.com/Laetaria/UfficioEspresso/main/IMG_0570.png"
+icon = "https://raw.githubusercontent.com/louzhee/IMGEspresso/refs/heads/main/Espresso%20Office.png"
 format = "auto"
 fonts = []
 
