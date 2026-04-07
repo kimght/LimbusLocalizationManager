@@ -25,4 +25,6 @@ dist-ssr
 
 .vscode
 CLAUDE.md
+AGENTS.md
 .claude
+.junie
