@@ -206,6 +206,31 @@ icon = "https://raw.githubusercontent.com/louzhee/IMGEspresso/refs/heads/main/Es
 format = "auto"
 fonts = []
 
+[vn-Kazike]
+repo = "Kiroinotcool/THE-KAZIKE-TEAM-LIMBUS"
+name = "The Kazike Team"
+authors = [
+  "Worny",
+  "pauuuuuuu",
+  "leox01997",
+  "frieds_eggs",
+  "dysphoria013",
+  "kirizakigeiz",
+  "mrslyhd",
+  "firefox0457",
+  "alexandrina_0",
+  "rubiry",
+  "hampter2857",
+  "prolq",
+  "majiconoki_777",
+  "toibingoo_57036",
+  "foufouw",
+]
+flag = "VN"
+icon = "https://raw.githubusercontent.com/Kiroinotcool/THE-KAZIKE-TEAM-LIMBUS/refs/heads/main/image-removebg-preview%20(2).png"
+format = "auto"
+fonts = []
+
 [hant-RHOY]
 repo = "user-unknown-0711/ParatranzUploader"
 name = "Retirement Home Old Yard"

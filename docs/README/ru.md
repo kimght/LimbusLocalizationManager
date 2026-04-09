@@ -29,6 +29,7 @@
 - [**LimbusThai**](https://github.com/stlinx/LocalizeLimbusTH) (TH)
 - [**Espresso Office**](https://github.com/louzhee/LocalizeLimbusIT) (IT)
 - [**Retirement Home Old Yard**](https://github.com/user-unknown-0711/ParatranzUploader) (HANT)
+- [**The Kazike Team**](https://github.com/Kiroinotcool/THE-KAZIKE-TEAM-LIMBUS) (VN)
 
 # Установка
 1. Скачай последнюю версию для своей операционной системы в [релизах](https://github.com/kimght/LimbusLocalizationManager/releases)

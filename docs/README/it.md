@@ -29,6 +29,7 @@ Un semplice strumento per gestire le localizzazioni di Limbus Company
 - [**LimbusThai**](https://github.com/stlinx/LocalizeLimbusTH) (TH)
 - [**Espresso Office**](https://github.com/louzhee/LocalizeLimbusIT) (IT)
 - [**Retirement Home Old Yard**](https://github.com/user-unknown-0711/ParatranzUploader) (HANT)
+- [**The Kazike Team**](https://github.com/Kiroinotcool/THE-KAZIKE-TEAM-LIMBUS) (VN)
 
 # Installazione
 1. Scarica l'ultima versione per il tuo sistema operativo da [releases](https://github.com/kimght/LimbusLocalizationManager/releases)
