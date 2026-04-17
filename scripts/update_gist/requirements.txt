@@ -5,4 +5,4 @@ requests==2.32.3
 schedule==1.2.2
 toml==0.10.2
 urllib3==2.3.0
-pillow==11.2.1
+pillow==12.2.0
