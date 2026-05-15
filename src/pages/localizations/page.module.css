@@ -89,7 +89,7 @@
 }
 
 .item {
-  @apply flex gap-2 items-center p-1;
+  @apply flex gap-2 items-center p-1 shrink-0;
 }
 
 .item:first-child {
