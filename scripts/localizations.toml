@@ -127,10 +127,10 @@ url = "https://github.com/LimbusTraditionalMandarin/font/releases/download/17446
 hash = "44563efaea921914d58e42bac4495881"
 name = "Context/ContextFont.ttf"
 
-[[hant-LTM.fonts]]
-url = "https://github.com/LimbusTraditionalMandarin/font/releases/download/1744630853/SarasaGothicTC-Bold.ttf"
-hash = "44563efaea921914d58e42bac4495881"
-name = "Title/TitleFont.ttf"
+# [[hant-LTM.fonts]]
+# url = "https://github.com/LimbusTraditionalMandarin/font/releases/download/1744630853/SarasaGothicTC-Bold.ttf"
+# hash = "44563efaea921914d58e42bac4495881"
+# name = "Title/TitleFont.ttf"
 
 [zh-CN]
 repo = "LocalizeLimbusCompany/LocalizeLimbusCompany"
@@ -145,10 +145,10 @@ url = "https://raw.githubusercontent.com/LocalizeLimbusCompany/LocalizeLimbusCom
 hash = "b1af87d9b8a3975e58b9a25a0c04f7b4"
 name = "Context/ChineseFont.ttf"
 
-[[zh-CN.fonts]]
-url = "https://raw.githubusercontent.com/LocalizeLimbusCompany/LocalizeLimbusCompany/refs/heads/main/Fonts/ChineseFont.ttf"
-hash = "b1af87d9b8a3975e58b9a25a0c04f7b4"
-name = "Title/ChineseFont.ttf"
+# [[zh-CN.fonts]]
+# url = "https://raw.githubusercontent.com/LocalizeLimbusCompany/LocalizeLimbusCompany/refs/heads/main/Fonts/ChineseFont.ttf"
+# hash = "b1af87d9b8a3975e58b9a25a0c04f7b4"
+# name = "Title/ChineseFont.ttf"
 
 [ptbr-Uniao]
 repo = "2tsunami5/Uniao_LimbusCompanyPT-BR"
@@ -246,7 +246,7 @@ url = "https://github.com/LimbusTraditionalMandarin/font/releases/download/17446
 hash = "44563efaea921914d58e42bac4495881"
 name = "Context/ContextFont.ttf"
 
-[[hant-RHOY.fonts]]
-url = "https://github.com/LimbusTraditionalMandarin/font/releases/download/1744630853/SarasaGothicTC-Bold.ttf"
-hash = "44563efaea921914d58e42bac4495881"
-name = "Title/TitleFont.ttf"
+# [[hant-RHOY.fonts]]
+# url = "https://github.com/LimbusTraditionalMandarin/font/releases/download/1744630853/SarasaGothicTC-Bold.ttf"
+# hash = "44563efaea921914d58e42bac4495881"
+# name = "Title/TitleFont.ttf"
