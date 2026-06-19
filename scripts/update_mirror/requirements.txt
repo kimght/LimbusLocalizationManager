@@ -2,6 +2,7 @@ certifi==2025.1.31
 charset-normalizer==3.4.1
 idna==3.10
 requests==2.32.3
+PySocks==1.7.1
 schedule==1.2.2
 toml==0.10.2
 urllib3==2.3.0

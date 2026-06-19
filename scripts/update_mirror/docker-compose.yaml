@@ -9,6 +9,7 @@ services:
     environment:
       CONFIG_URL: "https://raw.githubusercontent.com/kimght/LimbusLocalizationManager/refs/heads/main/scripts/localizations.toml"
       GITHUB_TOKEN: "${GITHUB_TOKEN}"
+      GITHUB_PROXY: "${GITHUB_PROXY}"
       MINIO_ENDPOINT: "minio:9000"
       MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY}"
       MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
@@ -25,7 +26,7 @@ services:
     environment:
       MINIO_ROOT_USER: "${MINIO_ROOT_USER}"
       MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD}"
-      MINIO_SERVER_URL: "${MINIO_SERVER_URL}"
+      # MINIO_SERVER_URL: "${MINIO_SERVER_URL}"
       MINIO_BROWSER: "off"
     command: server /data --console-address ":9001"
     labels:

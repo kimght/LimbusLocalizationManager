@@ -16,6 +16,7 @@ from typing import TypedDict, Literal, cast, BinaryIO
 from argparse import ArgumentParser
 
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
+GITHUB_PROXY = os.environ.get("GITHUB_PROXY")
 CONFIG_URL = os.environ.get("CONFIG_URL")
 MINIO_ENDPOINT = os.environ["MINIO_ENDPOINT"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
@@ -79,9 +80,15 @@ def get_github_headers() -> dict[str, str]:
     return headers
 
 
+def get_proxies(url: str) -> dict[str, str] | None:
+    if GITHUB_PROXY and ("github.com" in url or "githubusercontent.com" in url):
+        return {"http": GITHUB_PROXY, "https": GITHUB_PROXY}
+    return None
+
+
 def get_release_info(repo: str) -> ReleaseInfo:
     url = f"https://api.github.com/repos/{repo}/releases/latest"
-    response = requests.get(url, headers=get_github_headers())
+    response = requests.get(url, headers=get_github_headers(), proxies=get_proxies(url))
     response.raise_for_status()
     content = response.json()
     return content
@@ -91,8 +98,9 @@ def get_description(release: ReleaseInfo) -> str:
     for asset in release["assets"]:
         if asset["name"].lower() != "readme.md":
             continue
+        url = asset["browser_download_url"]
         return requests.get(
-            asset["browser_download_url"], headers=get_github_headers()
+            url, headers=get_github_headers(), proxies=get_proxies(url)
         ).text
     return release["body"]
 
@@ -115,7 +123,7 @@ def get_localization_asset_info(
 
 
 def get_optimized_icon(icon_url: str) -> str:
-    response = requests.get(icon_url)
+    response = requests.get(icon_url, proxies=get_proxies(icon_url))
 
     script_dir = Path(__file__).parent.absolute()
 
@@ -154,7 +162,9 @@ def sync_to_minio(client: minio.Minio, source_url: str, object_name: str):
     if current is not None:
         return
 
-    with requests.get(source_url, stream=True) as r:
+    with requests.get(
+        source_url, stream=True, proxies=get_proxies(source_url)
+    ) as r:
         r.raise_for_status()
 
         file_size = int(r.headers.get("content-length", 0))
@@ -227,7 +237,11 @@ def load_config() -> dict | None:
     if CONFIG_URL:
         try:
             logging.info(f"Fetching config from {CONFIG_URL}")
-            response = requests.get(CONFIG_URL, headers=get_github_headers())
+            response = requests.get(
+                CONFIG_URL,
+                headers=get_github_headers(),
+                proxies=get_proxies(CONFIG_URL),
+            )
             response.raise_for_status()
             return toml.loads(response.text)
         except Exception as e:
@@ -362,6 +376,7 @@ if __name__ == "__main__":
         exit(main())
 
     else:
+        main()
         logging.info(f"Scheduling updates every {args.interval} minutes")
         schedule.every(args.interval).minutes.do(main)
 
