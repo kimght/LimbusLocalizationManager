@@ -17,6 +17,7 @@ GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 GITHUB_GIST_ID = os.environ["GITHUB_GIST_ID"]
 GITHUB_GIST_OWNER = os.environ["GITHUB_GIST_OWNER"]
 CONFIG_URL = os.environ.get("CONFIG_URL")
+CHAPTERS_URL = os.environ.get("CHAPTERS_URL")
 
 
 class UpToDateError(Exception):
@@ -222,11 +223,12 @@ def do_update() -> int:
         logging.info("No changes to the localizations")
         return 0
 
-    content = json.dumps(
-        {"localizations": list(processed.values()), "format_version": 1},
-        indent=2,
-        ensure_ascii=False,
-    )
+    content = {"localizations": list(processed.values()), "format_version": 1}
+
+    if CHAPTERS_URL is not None:
+        content["chapters_url"] = CHAPTERS_URL
+
+    content = json.dumps(content, indent=2, ensure_ascii=False)
 
     response = requests.patch(
         f"https://api.github.com/gists/{GITHUB_GIST_ID}",
