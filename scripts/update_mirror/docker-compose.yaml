@@ -7,7 +7,8 @@ services:
       - ../localizations.toml:/app/localizations.toml
     restart: always
     environment:
-      CONFIG_URL: "https://raw.githubusercontent.com/kimght/LimbusLocalizationManager/refs/heads/main/scripts/localizations.toml"
+      CONFIG_URL: "${CONFIG_URL}"
+      CHAPTERS_URL: "${CHAPTERS_URL}"
       GITHUB_TOKEN: "${GITHUB_TOKEN}"
       GITHUB_PROXY: "${GITHUB_PROXY}"
       MINIO_ENDPOINT: "minio:9000"
