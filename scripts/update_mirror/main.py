@@ -18,11 +18,14 @@ from argparse import ArgumentParser
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 GITHUB_PROXY = os.environ.get("GITHUB_PROXY")
 CONFIG_URL = os.environ.get("CONFIG_URL")
+CHAPTERS_URL = os.environ.get("CHAPTERS_URL")
 MINIO_ENDPOINT = os.environ["MINIO_ENDPOINT"]
 MINIO_ACCESS_KEY = os.environ["MINIO_ACCESS_KEY"]
 MINIO_SECRET_KEY = os.environ["MINIO_SECRET_KEY"]
 MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "localizations")
 MINIO_PUBLIC_URL = os.environ.get("MINIO_PUBLIC_URL", MINIO_ENDPOINT)
+
+CHAPTERS_OBJECT_NAME = "chapters.json"
 
 
 class UpToDateError(Exception):
@@ -180,6 +183,24 @@ def sync_to_minio(client: minio.Minio, source_url: str, object_name: str):
         )
 
 
+def sync_chapters(client: minio.Minio, source_url: str) -> str:
+    response = requests.get(source_url, proxies=get_proxies(source_url))
+    response.raise_for_status()
+
+    data = response.content
+    content_type = response.headers.get("content-type", "application/json")
+
+    client.put_object(
+        MINIO_BUCKET,
+        CHAPTERS_OBJECT_NAME,
+        BytesIO(data),
+        len(data),
+        content_type=content_type,
+    )
+
+    return CHAPTERS_OBJECT_NAME
+
+
 def create_release(
     client: minio.Minio,
     localization_id: str,
@@ -263,6 +284,8 @@ def cleanup_outdated(
     client: minio.Minio, processed: dict[str, Localization]
 ) -> None:
     expected_objects: set[str] = {"localizations.json"}
+    if CHAPTERS_URL is not None:
+        expected_objects.add(CHAPTERS_OBJECT_NAME)
     for loc in processed.values():
         loc_id = loc["id"]
         expected_objects.add(f"{loc_id}/files/{loc['version']}.zip")
@@ -298,10 +321,11 @@ def do_update() -> int:
 
     current = requests.get(f"{MINIO_PUBLIC_URL}/{MINIO_BUCKET}/localizations.json")
 
+    current_content: dict = {}
     current_localizations: dict[str, Localization] = {}
     if current.ok:
-        current_contents = current.json()
-        for localization in current_contents["localizations"]:
+        current_content = current.json()
+        for localization in current_content.get("localizations", []):
             current_localizations[localization["id"]] = localization
 
     processed: dict[str, Localization] = {}
@@ -326,15 +350,20 @@ def do_update() -> int:
 
     cleanup_outdated(client, processed)
 
-    if processed == current_localizations:
+    new_content: dict = {
+        "localizations": list(processed.values()),
+        "format_version": 1,
+    }
+
+    if CHAPTERS_URL is not None:
+        chapters_path = sync_chapters(client, CHAPTERS_URL)
+        new_content["chapters_url"] = f"{MINIO_PUBLIC_URL}/{MINIO_BUCKET}/{chapters_path}"
+
+    if new_content == current_content:
         logging.info("No changes to the localizations")
         return 0
 
-    content = json.dumps(
-        {"localizations": list(processed.values()), "format_version": 1},
-        indent=2,
-        ensure_ascii=False,
-    ).encode("utf-8")
+    content = json.dumps(new_content, indent=2, ensure_ascii=False).encode("utf-8")
 
     client.put_object(
         MINIO_BUCKET,
