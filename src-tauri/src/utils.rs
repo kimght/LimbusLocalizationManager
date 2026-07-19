@@ -35,6 +35,138 @@ pub fn set_app_handle(handle: tauri::AppHandle) {
     let _ = APP_HANDLE.set(handle);
 }
 
+// Working addresses discovered by get_with_ip_fallback, persisted so the next
+// launch connects through them right away instead of rediscovering
+static PINNED_ADDRESSES: std::sync::LazyLock<
+    std::sync::RwLock<HashMap<String, std::net::SocketAddr>>,
+> = std::sync::LazyLock::new(|| std::sync::RwLock::new(load_pinned_addresses()));
+
+// Client with every pinned address applied; None while nothing is pinned
+static PINNED_CLIENT: std::sync::LazyLock<std::sync::RwLock<Option<Client>>> =
+    std::sync::LazyLock::new(|| std::sync::RwLock::new(build_pinned_client()));
+
+fn address_cache_path() -> Option<PathBuf> {
+    use tauri::Manager;
+    let handle = APP_HANDLE.get()?;
+    let dir = handle.path().app_config_dir().ok()?;
+    Some(dir.join("address_cache.json"))
+}
+
+fn load_pinned_addresses() -> HashMap<String, std::net::SocketAddr> {
+    let Some(path) = address_cache_path() else {
+        return HashMap::new();
+    };
+    let Ok(content) = fs::read_to_string(&path) else {
+        return HashMap::new();
+    };
+    let Ok(saved) = serde_json::from_str::<HashMap<String, String>>(&content) else {
+        warn!("Failed to parse {:?}, ignoring it", path);
+        return HashMap::new();
+    };
+
+    let addresses: HashMap<_, _> = saved
+        .into_iter()
+        .filter_map(|(host, address)| address.parse().ok().map(|address| (host, address)))
+        .collect();
+
+    if !addresses.is_empty() {
+        info!("Loaded saved addresses: {:?}", addresses);
+    }
+    addresses
+}
+
+fn save_pinned_addresses(addresses: &HashMap<String, std::net::SocketAddr>) {
+    let Some(path) = address_cache_path() else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+
+    let serializable: HashMap<&String, String> = addresses
+        .iter()
+        .map(|(host, address)| (host, address.to_string()))
+        .collect();
+
+    match serde_json::to_string_pretty(&serializable) {
+        Ok(content) => {
+            if let Err(error) = fs::write(&path, content) {
+                warn!("Failed to save address cache to {:?}: {}", path, error);
+            }
+        }
+        Err(error) => warn!("Failed to serialize address cache: {}", error),
+    }
+}
+
+fn build_pinned_client() -> Option<Client> {
+    let addresses = PINNED_ADDRESSES.read().ok()?;
+    if addresses.is_empty() {
+        return None;
+    }
+
+    let mut builder = Client::builder()
+        .user_agent(USER_AGENT)
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(DEFAULT_TIMEOUT);
+
+    for (host, address) in addresses.iter() {
+        builder = builder.resolve(host, *address);
+    }
+
+    builder.build().ok()
+}
+
+fn rebuild_pinned_client() {
+    if let Ok(mut client) = PINNED_CLIENT.write() {
+        *client = build_pinned_client();
+    }
+}
+
+// The regular client, with any previously discovered addresses applied
+fn request_client() -> Client {
+    if let Ok(client) = PINNED_CLIENT.read() {
+        if let Some(client) = client.as_ref() {
+            return client.clone();
+        }
+    }
+    HTTP_CLIENT.clone()
+}
+
+fn remember_address(host: &str, address: std::net::SocketAddr) {
+    {
+        let Ok(mut addresses) = PINNED_ADDRESSES.write() else {
+            return;
+        };
+        if addresses.get(host) == Some(&address) {
+            return;
+        }
+
+        info!("Remembering working address {} for {}", address, host);
+        addresses.insert(host.to_string(), address);
+        save_pinned_addresses(&addresses);
+    }
+    rebuild_pinned_client();
+}
+
+fn forget_address(host: &str) {
+    let removed = {
+        let Ok(mut addresses) = PINNED_ADDRESSES.write() else {
+            return;
+        };
+        match addresses.remove(host) {
+            Some(address) => {
+                info!("Saved address {} for {} stopped working", address, host);
+                save_pinned_addresses(&addresses);
+                true
+            }
+            None => false,
+        }
+    };
+    if removed {
+        rebuild_pinned_client();
+    }
+}
+
 // Keeps the frontend informed while get_with_ip_fallback cycles addresses
 fn emit_connection_status(stage: &str, host: &str, address: Option<String>) {
     if let Some(handle) = APP_HANDLE.get() {
@@ -59,7 +191,7 @@ async fn get_with_ip_fallback(
     url: &str,
     timeout: Duration,
 ) -> Result<reqwest::Response, anyhow::Error> {
-    let error = match HTTP_CLIENT.get(url).timeout(timeout).send().await {
+    let error = match request_client().get(url).timeout(timeout).send().await {
         Ok(response) => return Ok(response),
         Err(error) if error.is_connect() || error.is_timeout() => error,
         Err(error) => return Err(error.into()),
@@ -82,6 +214,7 @@ async fn get_with_ip_fallback(
         url, error, host
     );
     emit_connection_status("direct_failed", &host, None);
+    forget_address(&host);
 
     let addresses = tokio::net::lookup_host((host.as_str(), port))
         .await
@@ -103,6 +236,7 @@ async fn get_with_ip_fallback(
             Ok(response) => {
                 info!("Connected to {} via {}", host, address);
                 emit_connection_status("connected", &host, Some(address.to_string()));
+                remember_address(&host, address);
                 return Ok(response);
             }
             Err(error) => {
