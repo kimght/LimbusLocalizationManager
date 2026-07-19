@@ -16,14 +16,79 @@ use zip::ZipArchive;
 
 const METADATA_FILE_NAME: &str = "llc_config.toml";
 const REPO_NAME: &str = "kimght/LimbusLocalizationManager";
+const USER_AGENT: &str = "Limbus Launcher";
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+const FONT_TIMEOUT: Duration = Duration::from_secs(300);
 
 static HTTP_CLIENT: std::sync::LazyLock<Client> = std::sync::LazyLock::new(|| {
     Client::builder()
-        .user_agent("Limbus Launcher")
-        .timeout(Duration::from_secs(30))
+        .user_agent(USER_AGENT)
+        .connect_timeout(Duration::from_secs(10))
+        .timeout(DEFAULT_TIMEOUT)
         .build()
         .expect("Failed to create HTTP client")
 });
+
+// Some ISPs block individual CDN addresses, so a request may fail or succeed
+// depending on which address the system resolver happens to return (e.g.
+// gist.githubusercontent.com resolves to four addresses of which one may be
+// unreachable). When a request fails to connect, retry it with the failing
+// host pinned to each of its addresses in turn until one works.
+async fn get_with_ip_fallback(
+    url: &str,
+    timeout: Duration,
+) -> Result<reqwest::Response, anyhow::Error> {
+    let error = match HTTP_CLIENT.get(url).timeout(timeout).send().await {
+        Ok(response) => return Ok(response),
+        Err(error) if error.is_connect() || error.is_timeout() => error,
+        Err(error) => return Err(error.into()),
+    };
+
+    // On a redirect the connection failure may be for a host other than the
+    // one in the original url, so take the host from the error if available
+    let failing_url = match error.url() {
+        Some(url) => url.clone(),
+        None => reqwest::Url::parse(url).with_context(|| format!("Invalid url: {}", url))?,
+    };
+    let host = failing_url
+        .host_str()
+        .ok_or_else(|| anyhow::anyhow!("Url has no host: {}", failing_url))?
+        .to_string();
+    let port = failing_url.port_or_known_default().unwrap_or(443);
+
+    warn!(
+        "Request to {} failed to connect ({}), retrying each address of {}",
+        url, error, host
+    );
+
+    let addresses = tokio::net::lookup_host((host.as_str(), port))
+        .await
+        .with_context(|| format!("Failed to resolve {}", host))?;
+
+    for address in addresses {
+        debug!("Retrying {} with {} pinned to {}", url, host, address);
+
+        let client = Client::builder()
+            .user_agent(USER_AGENT)
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(timeout)
+            .resolve(&host, address)
+            .build()
+            .with_context(|| format!("Failed to create HTTP client"))?;
+
+        match client.get(url).send().await {
+            Ok(response) => {
+                info!("Connected to {} via {}", host, address);
+                return Ok(response);
+            }
+            Err(error) => {
+                warn!("Address {} of {} failed: {}", address, host, error);
+            }
+        }
+    }
+
+    Err(anyhow::anyhow!("All addresses of {} are unreachable", host))
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct GameConfig {
@@ -133,9 +198,7 @@ pub fn save_installed_metadata(
 }
 
 pub async fn fetch_available_localizations(url: &str) -> Result<Vec<Localization>, anyhow::Error> {
-    let response = HTTP_CLIENT
-        .get(url)
-        .send()
+    let response = get_with_ip_fallback(url, DEFAULT_TIMEOUT)
         .await
         .with_context(|| format!("Request error"))?;
 
@@ -326,14 +389,12 @@ pub async fn uninstall_localization(
 }
 
 pub async fn get_latest_version() -> Result<String, anyhow::Error> {
-    let response = HTTP_CLIENT
-        .get(&format!(
-            "https://api.github.com/repos/{}/releases/latest",
-            REPO_NAME
-        ))
-        .send()
-        .await
-        .with_context(|| format!("Failed to get latest version"))?;
+    let response = get_with_ip_fallback(
+        &format!("https://api.github.com/repos/{}/releases/latest", REPO_NAME),
+        DEFAULT_TIMEOUT,
+    )
+    .await
+    .with_context(|| format!("Failed to get latest version"))?;
 
     if !response.status().is_success() {
         return Err(anyhow::anyhow!("HTTP error: {}", response.status()));
@@ -412,9 +473,7 @@ async fn download_localization_file(
 ) -> Result<PathBuf, anyhow::Error> {
     let download_path = temp_dir.path().join("localization.zip");
 
-    let response = HTTP_CLIENT
-        .get(&localization.url)
-        .send()
+    let response = get_with_ip_fallback(&localization.url, DEFAULT_TIMEOUT)
         .await
         .with_context(|| format!("Request error"))?;
 
@@ -652,10 +711,7 @@ async fn download_and_validate_font(
 ) -> Result<(), anyhow::Error> {
     debug!("Starting download from {} to {:?}", url, save_path);
 
-    let response = HTTP_CLIENT
-        .get(url)
-        .timeout(Duration::from_secs(300))
-        .send()
+    let response = get_with_ip_fallback(url, FONT_TIMEOUT)
         .await
         .with_context(|| format!("Font download request error from {}", url))?;
 
