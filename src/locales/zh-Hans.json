@@ -34,7 +34,9 @@
     "error": "获取语言包失败！",
     "tryAgain": "重试",
     "changeSource": "更改网络源",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "connectionRetry": "无法连接到服务器，正在尝试其他地址",
+    "connectionTrying": "无法直接连接，正在尝试 {{address}}"
   },
   "error": {
     "install": "安装 {{localization}} 失败",

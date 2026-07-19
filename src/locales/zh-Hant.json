@@ -34,7 +34,9 @@
     "error": "取得本地化語言失敗！",
     "tryAgain": "重試",
     "changeSource": "更改來源",
-    "refresh": "重新整理"
+    "refresh": "重新整理",
+    "connectionRetry": "無法連線到伺服器，正在嘗試其他位址",
+    "connectionTrying": "無法直接連線，正在嘗試 {{address}}"
   },
   "error": {
     "install": "安裝 {{localization}} 失敗",

@@ -34,7 +34,9 @@
     "error": "ดึงไฟล์แปลล้มเหลว!",
     "tryAgain": "ลองอีกครั้ง",
     "changeSource": "เปลี่ยนเว็บ",
-    "refresh": "รีเฟรช"
+    "refresh": "รีเฟรช",
+    "connectionRetry": "เชื่อมต่อกับเซิร์ฟเวอร์ไม่ได้ กำลังลองที่อยู่อื่น",
+    "connectionTrying": "เชื่อมต่อโดยตรงไม่ได้ กำลังลอง {{address}}"
   },
   "error": {
     "install": "ติดตั้ง {{localization}} ล้มเหลว",

@@ -34,7 +34,9 @@
     "error": "¡No se pudo cargar la lista de localizaciones!",
     "tryAgain": "Intentar de nuevo",
     "changeSource": "Cambiar orígen",
-    "refresh": "Actualizar"
+    "refresh": "Actualizar",
+    "connectionRetry": "No se puede conectar al servidor, probando otras direcciones",
+    "connectionTrying": "No se puede conectar directamente, probando {{address}}"
   },
   "error": {
     "install": "Instalación de {{localization}} fallida",

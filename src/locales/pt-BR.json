@@ -34,7 +34,9 @@
     "error": "Falha em obter as localizações!",
     "tryAgain": "Tente novamente",
     "changeSource": "Mudar fonte",
-    "refresh": "Atualizar"
+    "refresh": "Atualizar",
+    "connectionRetry": "Não foi possível conectar ao servidor, tentando outros endereços",
+    "connectionTrying": "Falha na conexão direta, tentando {{address}}"
   },
   "error": {
     "install": "Falha ao instalar {{localization}}",

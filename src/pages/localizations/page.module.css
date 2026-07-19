@@ -9,6 +9,10 @@
   @apply text-limbus-300 text-lg;
 }
 
+.loading .connectionStatus {
+  @apply text-limbus-500 text-sm mt-2 text-center px-4;
+}
+
 .loading p::after {
   content: "";
   display: inline-block;

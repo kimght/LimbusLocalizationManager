@@ -29,6 +29,27 @@ static HTTP_CLIENT: std::sync::LazyLock<Client> = std::sync::LazyLock::new(|| {
         .expect("Failed to create HTTP client")
 });
 
+static APP_HANDLE: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::new();
+
+pub fn set_app_handle(handle: tauri::AppHandle) {
+    let _ = APP_HANDLE.set(handle);
+}
+
+// Keeps the frontend informed while get_with_ip_fallback cycles addresses
+fn emit_connection_status(stage: &str, host: &str, address: Option<String>) {
+    if let Some(handle) = APP_HANDLE.get() {
+        use tauri::Emitter;
+        let _ = handle.emit(
+            "connection_status",
+            serde_json::json!({
+                "stage": stage,
+                "host": host,
+                "address": address,
+            }),
+        );
+    }
+}
+
 // Some ISPs block individual CDN addresses, so a request may fail or succeed
 // depending on which address the system resolver happens to return (e.g.
 // gist.githubusercontent.com resolves to four addresses of which one may be
@@ -60,6 +81,7 @@ async fn get_with_ip_fallback(
         "Request to {} failed to connect ({}), retrying each address of {}",
         url, error, host
     );
+    emit_connection_status("direct_failed", &host, None);
 
     let addresses = tokio::net::lookup_host((host.as_str(), port))
         .await
@@ -67,6 +89,7 @@ async fn get_with_ip_fallback(
 
     for address in addresses {
         debug!("Retrying {} with {} pinned to {}", url, host, address);
+        emit_connection_status("trying_address", &host, Some(address.to_string()));
 
         let client = Client::builder()
             .user_agent(USER_AGENT)
@@ -79,6 +102,7 @@ async fn get_with_ip_fallback(
         match client.get(url).send().await {
             Ok(response) => {
                 info!("Connected to {} via {}", host, address);
+                emit_connection_status("connected", &host, Some(address.to_string()));
                 return Ok(response);
             }
             Err(error) => {
@@ -87,6 +111,7 @@ async fn get_with_ip_fallback(
         }
     }
 
+    emit_connection_status("failed", &host, None);
     Err(anyhow::anyhow!("All addresses of {} are unreachable", host))
 }
 
