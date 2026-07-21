@@ -34,7 +34,9 @@
     "error": "Failed to fetch localizations!",
     "tryAgain": "Try again",
     "changeSource": "Change source",
-    "refresh": "Refresh"
+    "refresh": "Refresh",
+    "connectionRetry": "Can't reach the server, trying other addresses",
+    "connectionTrying": "Can't connect directly, trying {{address}}"
   },
   "error": {
     "install": "Failed to install {{localization}}",

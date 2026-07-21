@@ -4,10 +4,12 @@ import { useTranslation } from "react-i18next";
 import { RefreshCw } from "lucide-react";
 import { cn } from "@/utils";
 import { useLocalizations } from "@/hooks/use-localizations";
+import { useConnectionStatus } from "@/hooks/use-connection-status";
 
 function Page() {
   const { all, flags, isLoading, isFetching, error, refetch } =
     useLocalizations();
+  const connectionStatus = useConnectionStatus();
   const { t } = useTranslation();
   const navigate = useNavigate();
 
@@ -15,6 +17,15 @@ function Page() {
     return (
       <div className={styles.loading}>
         <p>{t("localizations.loading")}</p>
+        {connectionStatus && (
+          <span className={styles.connectionStatus}>
+            {connectionStatus.address
+              ? t("localizations.connectionTrying", {
+                  address: connectionStatus.address,
+                })
+              : t("localizations.connectionRetry")}
+          </span>
+        )}
       </div>
     );
   }

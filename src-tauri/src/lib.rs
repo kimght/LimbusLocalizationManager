@@ -585,6 +585,8 @@ pub fn run() {
             let version = app_handle.package_info().version.to_string();
             info!("Initializing Limbus Localization Manager v{}", version);
 
+            utils::set_app_handle(app_handle.clone());
+
             use tauri::{LogicalSize, WebviewUrl, WebviewWindowBuilder};
             let window = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
                 .title("Limbus Localization Manager")
