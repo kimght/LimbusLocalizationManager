@@ -189,7 +189,7 @@ name = "Title/TitleFont.otf"
 [th-stlinx]
 repo = "stlinx/LocalizeLimbusTH"
 name = "LimbusThai by stlinx"
-authors = ["stlinx", "JoshWaltz49", "Asunokun"]
+authors = ["stlinx", "JoshWaltz49", "Asonakun"]
 flag = "TH"
 icon = "https://raw.githubusercontent.com/stlinx/Limbus-loader/main/icon.jpg"
 format = "auto"
