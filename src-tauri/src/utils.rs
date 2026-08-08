@@ -19,123 +19,103 @@ const REPO_NAME: &str = "kimght/LimbusLocalizationManager";
 const USER_AGENT: &str = "Limbus Launcher";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 const FONT_TIMEOUT: Duration = Duration::from_secs(300);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const PROBE_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const READ_TIMEOUT: Duration = Duration::from_secs(30);
+
+static PINNED_ADDRESSES: std::sync::LazyLock<
+    std::sync::RwLock<HashMap<String, std::net::SocketAddr>>,
+> = std::sync::LazyLock::new(|| std::sync::RwLock::new(HashMap::new()));
+
+static PINNED_CLIENT: std::sync::LazyLock<std::sync::RwLock<Option<Client>>> =
+    std::sync::LazyLock::new(|| std::sync::RwLock::new(None));
 
 static HTTP_CLIENT: std::sync::LazyLock<Client> = std::sync::LazyLock::new(|| {
-    Client::builder()
-        .user_agent(USER_AGENT)
-        .connect_timeout(Duration::from_secs(10))
-        .timeout(DEFAULT_TIMEOUT)
+    client_builder(CONNECT_TIMEOUT, DEFAULT_TIMEOUT)
         .build()
         .expect("Failed to create HTTP client")
 });
 
-static APP_HANDLE: std::sync::OnceLock<tauri::AppHandle> = std::sync::OnceLock::new();
-
-pub fn set_app_handle(handle: tauri::AppHandle) {
-    let _ = APP_HANDLE.set(handle);
+fn client_builder(connect_timeout: Duration, timeout: Duration) -> reqwest::ClientBuilder {
+    Client::builder()
+        .user_agent(USER_AGENT)
+        .connect_timeout(connect_timeout)
+        .read_timeout(READ_TIMEOUT)
+        .timeout(timeout)
 }
 
-// Working addresses discovered by get_with_ip_fallback, persisted so the next
-// launch connects through them right away instead of rediscovering
-static PINNED_ADDRESSES: std::sync::LazyLock<
-    std::sync::RwLock<HashMap<String, std::net::SocketAddr>>,
-> = std::sync::LazyLock::new(|| std::sync::RwLock::new(load_pinned_addresses()));
-
-// Client with every pinned address applied; None while nothing is pinned
-static PINNED_CLIENT: std::sync::LazyLock<std::sync::RwLock<Option<Client>>> =
-    std::sync::LazyLock::new(|| std::sync::RwLock::new(build_pinned_client()));
-
-fn address_cache_path() -> Option<PathBuf> {
-    use tauri::Manager;
-    let handle = APP_HANDLE.get()?;
-    let dir = handle.path().app_config_dir().ok()?;
-    Some(dir.join("address_cache.json"))
-}
-
-fn load_pinned_addresses() -> HashMap<String, std::net::SocketAddr> {
-    let Some(path) = address_cache_path() else {
-        return HashMap::new();
-    };
-    let Ok(content) = fs::read_to_string(&path) else {
-        return HashMap::new();
-    };
-    let Ok(saved) = serde_json::from_str::<HashMap<String, String>>(&content) else {
-        warn!("Failed to parse {:?}, ignoring it", path);
-        return HashMap::new();
-    };
-
-    let addresses: HashMap<_, _> = saved
-        .into_iter()
-        .filter_map(|(host, address)| address.parse().ok().map(|address| (host, address)))
-        .collect();
-
-    if !addresses.is_empty() {
-        info!("Loaded saved addresses: {:?}", addresses);
-    }
-    addresses
-}
-
-fn save_pinned_addresses(addresses: &HashMap<String, std::net::SocketAddr>) {
-    let Some(path) = address_cache_path() else {
-        return;
-    };
-    if let Some(parent) = path.parent() {
-        let _ = fs::create_dir_all(parent);
-    }
-
-    let serializable: HashMap<&String, String> = addresses
-        .iter()
-        .map(|(host, address)| (host, address.to_string()))
-        .collect();
-
-    match serde_json::to_string_pretty(&serializable) {
-        Ok(content) => {
-            if let Err(error) = fs::write(&path, content) {
-                warn!("Failed to save address cache to {:?}: {}", path, error);
+fn with_pinned_addresses(
+    mut builder: reqwest::ClientBuilder,
+    candidate: Option<(&str, std::net::SocketAddr)>,
+) -> reqwest::ClientBuilder {
+    match PINNED_ADDRESSES.read() {
+        Ok(addresses) => {
+            for (host, address) in addresses.iter() {
+                builder = builder.resolve(host, *address);
             }
         }
-        Err(error) => warn!("Failed to serialize address cache: {}", error),
-    }
-}
-
-fn build_pinned_client() -> Option<Client> {
-    let addresses = PINNED_ADDRESSES.read().ok()?;
-    if addresses.is_empty() {
-        return None;
+        Err(error) => warn!("Pinned addresses are unreadable, ignoring them: {}", error),
     }
 
-    let mut builder = Client::builder()
-        .user_agent(USER_AGENT)
-        .connect_timeout(Duration::from_secs(10))
-        .timeout(DEFAULT_TIMEOUT);
-
-    for (host, address) in addresses.iter() {
-        builder = builder.resolve(host, *address);
+    if let Some((host, address)) = candidate {
+        builder = builder.resolve(host, address);
     }
 
-    builder.build().ok()
+    builder
 }
 
 fn rebuild_pinned_client() {
-    if let Ok(mut client) = PINNED_CLIENT.write() {
-        *client = build_pinned_client();
+    let has_addresses = match PINNED_ADDRESSES.read() {
+        Ok(addresses) => !addresses.is_empty(),
+        Err(error) => {
+            warn!("Pinned addresses are unreadable, ignoring them: {}", error);
+            false
+        }
+    };
+
+    let client = if has_addresses {
+        let builder = with_pinned_addresses(client_builder(CONNECT_TIMEOUT, DEFAULT_TIMEOUT), None);
+        match builder.build() {
+            Ok(client) => Some(client),
+            Err(error) => {
+                warn!("Failed to build the pinned client: {}", error);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    match PINNED_CLIENT.write() {
+        Ok(mut pinned) => *pinned = client,
+        Err(error) => warn!("Failed to store the pinned client: {}", error),
     }
 }
 
-// The regular client, with any previously discovered addresses applied
 fn request_client() -> Client {
-    if let Ok(client) = PINNED_CLIENT.read() {
-        if let Some(client) = client.as_ref() {
-            return client.clone();
+    match PINNED_CLIENT.read() {
+        Ok(pinned) => {
+            if let Some(client) = pinned.as_ref() {
+                return client.clone();
+            }
         }
+        Err(error) => warn!(
+            "Pinned client is unreadable, using the default one: {}",
+            error
+        ),
     }
+
     HTTP_CLIENT.clone()
 }
 
 fn remember_address(host: &str, address: std::net::SocketAddr) {
     {
-        let Ok(mut addresses) = PINNED_ADDRESSES.write() else {
-            return;
+        let mut addresses = match PINNED_ADDRESSES.write() {
+            Ok(addresses) => addresses,
+            Err(error) => {
+                warn!("Failed to remember {} for {}: {}", address, host, error);
+                return;
+            }
         };
         if addresses.get(host) == Some(&address) {
             return;
@@ -143,20 +123,22 @@ fn remember_address(host: &str, address: std::net::SocketAddr) {
 
         info!("Remembering working address {} for {}", address, host);
         addresses.insert(host.to_string(), address);
-        save_pinned_addresses(&addresses);
     }
     rebuild_pinned_client();
 }
 
 fn forget_address(host: &str) {
     let removed = {
-        let Ok(mut addresses) = PINNED_ADDRESSES.write() else {
-            return;
+        let mut addresses = match PINNED_ADDRESSES.write() {
+            Ok(addresses) => addresses,
+            Err(error) => {
+                warn!("Failed to forget the address of {}: {}", host, error);
+                return;
+            }
         };
         match addresses.remove(host) {
             Some(address) => {
-                info!("Saved address {} for {} stopped working", address, host);
-                save_pinned_addresses(&addresses);
+                info!("Address {} for {} stopped working", address, host);
                 true
             }
             None => false,
@@ -167,53 +149,33 @@ fn forget_address(host: &str) {
     }
 }
 
-// Keeps the frontend informed while get_with_ip_fallback cycles addresses
-fn emit_connection_status(stage: &str, host: &str, address: Option<String>) {
-    if let Some(handle) = APP_HANDLE.get() {
-        use tauri::Emitter;
-        let _ = handle.emit(
-            "connection_status",
-            serde_json::json!({
-                "stage": stage,
-                "host": host,
-                "address": address,
-            }),
-        );
-    }
-}
-
-// Some ISPs block individual CDN addresses, so a request may fail or succeed
-// depending on which address the system resolver happens to return (e.g.
-// gist.githubusercontent.com resolves to four addresses of which one may be
-// unreachable). When a request fails to connect, retry it with the failing
-// host pinned to each of its addresses in turn until one works.
 async fn get_with_ip_fallback(
     url: &str,
     timeout: Duration,
 ) -> Result<reqwest::Response, anyhow::Error> {
     let error = match request_client().get(url).timeout(timeout).send().await {
         Ok(response) => return Ok(response),
-        Err(error) if error.is_connect() || error.is_timeout() => error,
+        Err(error) if error.is_connect() => error,
         Err(error) => return Err(error.into()),
     };
 
-    // On a redirect the connection failure may be for a host other than the
-    // one in the original url, so take the host from the error if available
     let failing_url = match error.url() {
         Some(url) => url.clone(),
         None => reqwest::Url::parse(url).with_context(|| format!("Invalid url: {}", url))?,
     };
+
     let host = failing_url
         .host_str()
         .ok_or_else(|| anyhow::anyhow!("Url has no host: {}", failing_url))?
         .to_string();
+
     let port = failing_url.port_or_known_default().unwrap_or(443);
 
     warn!(
         "Request to {} failed to connect ({}), retrying each address of {}",
         url, error, host
     );
-    emit_connection_status("direct_failed", &host, None);
+
     forget_address(&host);
 
     let addresses = tokio::net::lookup_host((host.as_str(), port))
@@ -222,20 +184,17 @@ async fn get_with_ip_fallback(
 
     for address in addresses {
         debug!("Retrying {} with {} pinned to {}", url, host, address);
-        emit_connection_status("trying_address", &host, Some(address.to_string()));
 
-        let client = Client::builder()
-            .user_agent(USER_AGENT)
-            .connect_timeout(Duration::from_secs(5))
-            .timeout(timeout)
-            .resolve(&host, address)
-            .build()
-            .with_context(|| format!("Failed to create HTTP client"))?;
+        let client = with_pinned_addresses(
+            client_builder(PROBE_CONNECT_TIMEOUT, timeout),
+            Some((&host, address)),
+        )
+        .build()
+        .with_context(|| format!("Failed to create an HTTP client for {}", address))?;
 
         match client.get(url).send().await {
             Ok(response) => {
                 info!("Connected to {} via {}", host, address);
-                emit_connection_status("connected", &host, Some(address.to_string()));
                 remember_address(&host, address);
                 return Ok(response);
             }
@@ -245,7 +204,6 @@ async fn get_with_ip_fallback(
         }
     }
 
-    emit_connection_status("failed", &host, None);
     Err(anyhow::anyhow!("All addresses of {} are unreachable", host))
 }
 

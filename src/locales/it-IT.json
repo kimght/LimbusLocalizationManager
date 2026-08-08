@@ -34,9 +34,7 @@
     "error": "Fallito nel trovare localizzazioni!",
     "tryAgain": "Riprova",
     "changeSource": "Cambia Origine",
-    "refresh": "Aggiorna",
-    "connectionRetry": "Impossibile raggiungere il server, provo altri indirizzi",
-    "connectionTrying": "Connessione diretta non riuscita, provo {{address}}"
+    "refresh": "Aggiorna"
   },
   "error": {
     "install": "Fallito nell'installare {{localization}}",
