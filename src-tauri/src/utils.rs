@@ -16,14 +16,196 @@ use zip::ZipArchive;
 
 const METADATA_FILE_NAME: &str = "llc_config.toml";
 const REPO_NAME: &str = "kimght/LimbusLocalizationManager";
+const USER_AGENT: &str = "Limbus Launcher";
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+const FONT_TIMEOUT: Duration = Duration::from_secs(300);
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const PROBE_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const READ_TIMEOUT: Duration = Duration::from_secs(30);
+
+static PINNED_ADDRESSES: std::sync::LazyLock<
+    std::sync::RwLock<HashMap<String, std::net::SocketAddr>>,
+> = std::sync::LazyLock::new(|| std::sync::RwLock::new(HashMap::new()));
+
+static PINNED_CLIENT: std::sync::LazyLock<std::sync::RwLock<Option<Client>>> =
+    std::sync::LazyLock::new(|| std::sync::RwLock::new(None));
 
 static HTTP_CLIENT: std::sync::LazyLock<Client> = std::sync::LazyLock::new(|| {
-    Client::builder()
-        .user_agent("Limbus Launcher")
-        .timeout(Duration::from_secs(30))
+    client_builder(CONNECT_TIMEOUT, DEFAULT_TIMEOUT)
         .build()
         .expect("Failed to create HTTP client")
 });
+
+fn client_builder(connect_timeout: Duration, timeout: Duration) -> reqwest::ClientBuilder {
+    Client::builder()
+        .user_agent(USER_AGENT)
+        .connect_timeout(connect_timeout)
+        .read_timeout(READ_TIMEOUT)
+        .timeout(timeout)
+}
+
+fn with_pinned_addresses(
+    mut builder: reqwest::ClientBuilder,
+    candidate: Option<(&str, std::net::SocketAddr)>,
+) -> reqwest::ClientBuilder {
+    match PINNED_ADDRESSES.read() {
+        Ok(addresses) => {
+            for (host, address) in addresses.iter() {
+                builder = builder.resolve(host, *address);
+            }
+        }
+        Err(error) => warn!("Pinned addresses are unreadable, ignoring them: {}", error),
+    }
+
+    if let Some((host, address)) = candidate {
+        builder = builder.resolve(host, address);
+    }
+
+    builder
+}
+
+fn rebuild_pinned_client() {
+    let has_addresses = match PINNED_ADDRESSES.read() {
+        Ok(addresses) => !addresses.is_empty(),
+        Err(error) => {
+            warn!("Pinned addresses are unreadable, ignoring them: {}", error);
+            false
+        }
+    };
+
+    let client = if has_addresses {
+        let builder = with_pinned_addresses(client_builder(CONNECT_TIMEOUT, DEFAULT_TIMEOUT), None);
+        match builder.build() {
+            Ok(client) => Some(client),
+            Err(error) => {
+                warn!("Failed to build the pinned client: {}", error);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    match PINNED_CLIENT.write() {
+        Ok(mut pinned) => *pinned = client,
+        Err(error) => warn!("Failed to store the pinned client: {}", error),
+    }
+}
+
+fn request_client() -> Client {
+    match PINNED_CLIENT.read() {
+        Ok(pinned) => {
+            if let Some(client) = pinned.as_ref() {
+                return client.clone();
+            }
+        }
+        Err(error) => warn!(
+            "Pinned client is unreadable, using the default one: {}",
+            error
+        ),
+    }
+
+    HTTP_CLIENT.clone()
+}
+
+fn remember_address(host: &str, address: std::net::SocketAddr) {
+    {
+        let mut addresses = match PINNED_ADDRESSES.write() {
+            Ok(addresses) => addresses,
+            Err(error) => {
+                warn!("Failed to remember {} for {}: {}", address, host, error);
+                return;
+            }
+        };
+        if addresses.get(host) == Some(&address) {
+            return;
+        }
+
+        info!("Remembering working address {} for {}", address, host);
+        addresses.insert(host.to_string(), address);
+    }
+    rebuild_pinned_client();
+}
+
+fn forget_address(host: &str) {
+    let removed = {
+        let mut addresses = match PINNED_ADDRESSES.write() {
+            Ok(addresses) => addresses,
+            Err(error) => {
+                warn!("Failed to forget the address of {}: {}", host, error);
+                return;
+            }
+        };
+        match addresses.remove(host) {
+            Some(address) => {
+                info!("Address {} for {} stopped working", address, host);
+                true
+            }
+            None => false,
+        }
+    };
+    if removed {
+        rebuild_pinned_client();
+    }
+}
+
+async fn get_with_ip_fallback(
+    url: &str,
+    timeout: Duration,
+) -> Result<reqwest::Response, anyhow::Error> {
+    let error = match request_client().get(url).timeout(timeout).send().await {
+        Ok(response) => return Ok(response),
+        Err(error) if error.is_connect() => error,
+        Err(error) => return Err(error.into()),
+    };
+
+    let failing_url = match error.url() {
+        Some(url) => url.clone(),
+        None => reqwest::Url::parse(url).with_context(|| format!("Invalid url: {}", url))?,
+    };
+
+    let host = failing_url
+        .host_str()
+        .ok_or_else(|| anyhow::anyhow!("Url has no host: {}", failing_url))?
+        .to_string();
+
+    let port = failing_url.port_or_known_default().unwrap_or(443);
+
+    warn!(
+        "Request to {} failed to connect ({}), retrying each address of {}",
+        url, error, host
+    );
+
+    forget_address(&host);
+
+    let addresses = tokio::net::lookup_host((host.as_str(), port))
+        .await
+        .with_context(|| format!("Failed to resolve {}", host))?;
+
+    for address in addresses {
+        debug!("Retrying {} with {} pinned to {}", url, host, address);
+
+        let client = with_pinned_addresses(
+            client_builder(PROBE_CONNECT_TIMEOUT, timeout),
+            Some((&host, address)),
+        )
+        .build()
+        .with_context(|| format!("Failed to create an HTTP client for {}", address))?;
+
+        match client.get(url).send().await {
+            Ok(response) => {
+                info!("Connected to {} via {}", host, address);
+                remember_address(&host, address);
+                return Ok(response);
+            }
+            Err(error) => {
+                warn!("Address {} of {} failed: {}", address, host, error);
+            }
+        }
+    }
+
+    Err(anyhow::anyhow!("All addresses of {} are unreachable", host))
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct GameConfig {
@@ -133,9 +315,7 @@ pub fn save_installed_metadata(
 }
 
 pub async fn fetch_available_localizations(url: &str) -> Result<Vec<Localization>, anyhow::Error> {
-    let response = HTTP_CLIENT
-        .get(url)
-        .send()
+    let response = get_with_ip_fallback(url, DEFAULT_TIMEOUT)
         .await
         .with_context(|| format!("Request error"))?;
 
@@ -326,14 +506,12 @@ pub async fn uninstall_localization(
 }
 
 pub async fn get_latest_version() -> Result<String, anyhow::Error> {
-    let response = HTTP_CLIENT
-        .get(&format!(
-            "https://api.github.com/repos/{}/releases/latest",
-            REPO_NAME
-        ))
-        .send()
-        .await
-        .with_context(|| format!("Failed to get latest version"))?;
+    let response = get_with_ip_fallback(
+        &format!("https://api.github.com/repos/{}/releases/latest", REPO_NAME),
+        DEFAULT_TIMEOUT,
+    )
+    .await
+    .with_context(|| format!("Failed to get latest version"))?;
 
     if !response.status().is_success() {
         return Err(anyhow::anyhow!("HTTP error: {}", response.status()));
@@ -412,9 +590,7 @@ async fn download_localization_file(
 ) -> Result<PathBuf, anyhow::Error> {
     let download_path = temp_dir.path().join("localization.zip");
 
-    let response = HTTP_CLIENT
-        .get(&localization.url)
-        .send()
+    let response = get_with_ip_fallback(&localization.url, DEFAULT_TIMEOUT)
         .await
         .with_context(|| format!("Request error"))?;
 
@@ -652,10 +828,7 @@ async fn download_and_validate_font(
 ) -> Result<(), anyhow::Error> {
     debug!("Starting download from {} to {:?}", url, save_path);
 
-    let response = HTTP_CLIENT
-        .get(url)
-        .timeout(Duration::from_secs(300))
-        .send()
+    let response = get_with_ip_fallback(url, FONT_TIMEOUT)
         .await
         .with_context(|| format!("Font download request error from {}", url))?;
 
