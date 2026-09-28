@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{
     fs,
-    io::{self, BufReader, Read, Write},
+    io::{self, BufReader, Read, Seek, Write},
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -18,10 +18,10 @@ const METADATA_FILE_NAME: &str = "llc_config.toml";
 const REPO_NAME: &str = "kimght/LimbusLocalizationManager";
 const USER_AGENT: &str = "Limbus Launcher";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
-const FONT_TIMEOUT: Duration = Duration::from_secs(300);
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const PROBE_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const READ_TIMEOUT: Duration = Duration::from_secs(30);
+const DOWNLOAD_ATTEMPTS: u32 = 5;
 
 static PINNED_ADDRESSES: std::sync::LazyLock<
     std::sync::RwLock<HashMap<String, std::net::SocketAddr>>,
@@ -31,17 +31,16 @@ static PINNED_CLIENT: std::sync::LazyLock<std::sync::RwLock<Option<Client>>> =
     std::sync::LazyLock::new(|| std::sync::RwLock::new(None));
 
 static HTTP_CLIENT: std::sync::LazyLock<Client> = std::sync::LazyLock::new(|| {
-    client_builder(CONNECT_TIMEOUT, DEFAULT_TIMEOUT)
+    client_builder(CONNECT_TIMEOUT)
         .build()
         .expect("Failed to create HTTP client")
 });
 
-fn client_builder(connect_timeout: Duration, timeout: Duration) -> reqwest::ClientBuilder {
+fn client_builder(connect_timeout: Duration) -> reqwest::ClientBuilder {
     Client::builder()
         .user_agent(USER_AGENT)
         .connect_timeout(connect_timeout)
         .read_timeout(READ_TIMEOUT)
-        .timeout(timeout)
 }
 
 fn with_pinned_addresses(
@@ -74,7 +73,7 @@ fn rebuild_pinned_client() {
     };
 
     let client = if has_addresses {
-        let builder = with_pinned_addresses(client_builder(CONNECT_TIMEOUT, DEFAULT_TIMEOUT), None);
+        let builder = with_pinned_addresses(client_builder(CONNECT_TIMEOUT), None);
         match builder.build() {
             Ok(client) => Some(client),
             Err(error) => {
@@ -151,9 +150,9 @@ fn forget_address(host: &str) {
 
 async fn get_with_ip_fallback(
     url: &str,
-    timeout: Duration,
+    configure: impl Fn(reqwest::RequestBuilder) -> reqwest::RequestBuilder,
 ) -> Result<reqwest::Response, anyhow::Error> {
-    let error = match request_client().get(url).timeout(timeout).send().await {
+    let error = match configure(request_client().get(url)).send().await {
         Ok(response) => return Ok(response),
         Err(error) if error.is_connect() => error,
         Err(error) => return Err(error.into()),
@@ -186,13 +185,13 @@ async fn get_with_ip_fallback(
         debug!("Retrying {} with {} pinned to {}", url, host, address);
 
         let client = with_pinned_addresses(
-            client_builder(PROBE_CONNECT_TIMEOUT, timeout),
+            client_builder(PROBE_CONNECT_TIMEOUT),
             Some((&host, address)),
         )
         .build()
         .with_context(|| format!("Failed to create an HTTP client for {}", address))?;
 
-        match client.get(url).send().await {
+        match configure(client.get(url)).send().await {
             Ok(response) => {
                 info!("Connected to {} via {}", host, address);
                 remember_address(&host, address);
@@ -315,7 +314,7 @@ pub fn save_installed_metadata(
 }
 
 pub async fn fetch_available_localizations(url: &str) -> Result<Vec<Localization>, anyhow::Error> {
-    let response = get_with_ip_fallback(url, DEFAULT_TIMEOUT)
+    let response = get_with_ip_fallback(url, |request| request.timeout(DEFAULT_TIMEOUT))
         .await
         .with_context(|| format!("Request error"))?;
 
@@ -508,7 +507,7 @@ pub async fn uninstall_localization(
 pub async fn get_latest_version() -> Result<String, anyhow::Error> {
     let response = get_with_ip_fallback(
         &format!("https://api.github.com/repos/{}/releases/latest", REPO_NAME),
-        DEFAULT_TIMEOUT,
+        |request| request.timeout(DEFAULT_TIMEOUT),
     )
     .await
     .with_context(|| format!("Failed to get latest version"))?;
@@ -590,29 +589,9 @@ async fn download_localization_file(
 ) -> Result<PathBuf, anyhow::Error> {
     let download_path = temp_dir.path().join("localization.zip");
 
-    let response = get_with_ip_fallback(&localization.url, DEFAULT_TIMEOUT)
+    download_to_file(&localization.url, &download_path)
         .await
-        .with_context(|| format!("Request error"))?;
-
-    if !response.status().is_success() {
-        return Err(anyhow::anyhow!("HTTP error {}", response.status()));
-    }
-
-    let mut output_file = fs::File::create(&download_path)
-        .with_context(|| format!("Failed to create output file"))?;
-
-    let mut stream = response.bytes_stream();
-
-    while let Some(chunk_result) = stream.next().await {
-        let chunk = chunk_result.with_context(|| format!("Failed to read chunk"))?;
-        output_file
-            .write_all(&chunk)
-            .with_context(|| format!("Failed to write data chunk to file"))?;
-    }
-
-    output_file
-        .flush()
-        .with_context(|| format!("Failed to flush file data"))?;
+        .with_context(|| format!("Failed to download {}", localization.url))?;
 
     let size = fs::metadata(&download_path)
         .with_context(|| format!("Failed to get file size"))?
@@ -627,6 +606,129 @@ async fn download_localization_file(
         &localization.url
     );
     Ok(download_path)
+}
+
+enum AttemptError {
+    Retry(anyhow::Error),
+    Fatal(anyhow::Error),
+}
+
+async fn download_to_file(url: &str, path: &Path) -> Result<(), anyhow::Error> {
+    let mut file =
+        fs::File::create(path).with_context(|| format!("Failed to create {:?}", path))?;
+    let mut downloaded = 0;
+    let mut furthest = 0;
+    let mut failures = 0;
+
+    loop {
+        match download_attempt(url, &mut file, &mut downloaded).await {
+            Ok(()) => break,
+            Err(AttemptError::Fatal(error)) => return Err(error),
+            Err(AttemptError::Retry(error)) => {
+                if downloaded > furthest {
+                    furthest = downloaded;
+                    failures = 0;
+                }
+                failures += 1;
+                if failures >= DOWNLOAD_ATTEMPTS {
+                    return Err(error.context(format!(
+                        "Download failed {} times in a row at {} bytes",
+                        failures, downloaded
+                    )));
+                }
+                let delay = Duration::from_secs(1 << (failures - 1));
+                warn!(
+                    "Download of {} interrupted at {} bytes, retrying in {:?}: {:#}",
+                    url, downloaded, delay, error
+                );
+                tokio::time::sleep(delay).await;
+            }
+        }
+    }
+
+    file.sync_all()
+        .with_context(|| format!("Failed to flush {:?}", path))?;
+    Ok(())
+}
+
+async fn download_attempt(
+    url: &str,
+    file: &mut fs::File,
+    downloaded: &mut u64,
+) -> Result<(), AttemptError> {
+    let start = *downloaded;
+    let response = get_with_ip_fallback(url, |request| {
+        if start == 0 {
+            request
+        } else {
+            request.header(reqwest::header::RANGE, format!("bytes={}-", start))
+        }
+    })
+    .await
+    .map_err(AttemptError::Retry)?;
+
+    let status = response.status();
+    let resumed = status == reqwest::StatusCode::PARTIAL_CONTENT
+        && content_range_start(&response) == Some(start);
+
+    if start > 0
+        && !resumed
+        && (status.is_success() || status == reqwest::StatusCode::RANGE_NOT_SATISFIABLE)
+    {
+        info!(
+            "Server did not resume {} at {} bytes, restarting",
+            url, start
+        );
+        file.set_len(0)
+            .and_then(|()| file.rewind())
+            .context("Failed to truncate partial download")
+            .map_err(AttemptError::Fatal)?;
+        *downloaded = 0;
+        if !status.is_success() {
+            return Err(AttemptError::Retry(anyhow::anyhow!(
+                "HTTP error {}",
+                status
+            )));
+        }
+    }
+
+    if !status.is_success() {
+        let error = anyhow::anyhow!("HTTP error {}", status);
+        let transient = status.is_server_error()
+            || status == reqwest::StatusCode::TOO_MANY_REQUESTS
+            || status == reqwest::StatusCode::REQUEST_TIMEOUT;
+        return Err(if transient {
+            AttemptError::Retry(error)
+        } else {
+            AttemptError::Fatal(error)
+        });
+    }
+
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk
+            .context("Failed to read chunk")
+            .map_err(AttemptError::Retry)?;
+        file.write_all(&chunk)
+            .context("Failed to write data chunk to file")
+            .map_err(AttemptError::Fatal)?;
+        *downloaded += chunk.len() as u64;
+    }
+    Ok(())
+}
+
+fn content_range_start(response: &reqwest::Response) -> Option<u64> {
+    let value = response
+        .headers()
+        .get(reqwest::header::CONTENT_RANGE)?
+        .to_str()
+        .ok()?;
+    value
+        .strip_prefix("bytes ")?
+        .split('-')
+        .next()?
+        .parse()
+        .ok()
 }
 
 fn extract_zip_archive(zip_path: &Path, extract_path: &Path) -> Result<(), anyhow::Error> {
@@ -828,18 +930,6 @@ async fn download_and_validate_font(
 ) -> Result<(), anyhow::Error> {
     debug!("Starting download from {} to {:?}", url, save_path);
 
-    let response = get_with_ip_fallback(url, FONT_TIMEOUT)
-        .await
-        .with_context(|| format!("Font download request error from {}", url))?;
-
-    if !response.status().is_success() {
-        return Err(anyhow::anyhow!(
-            "Font download from {} failed with HTTP status {}",
-            url,
-            response.status()
-        ));
-    }
-
     if let Some(parent_dir) = save_path.parent() {
         fs::create_dir_all(parent_dir).with_context(|| {
             format!("Failed to create directory for font file {:?}", parent_dir)
@@ -848,25 +938,11 @@ async fn download_and_validate_font(
 
     let temp_save_path = save_path.with_extension("tmp_download");
 
-    let mut dest = fs::File::create(&temp_save_path)
-        .with_context(|| format!("Failed to create temporary font file {:?}", temp_save_path))?;
+    download_to_file(url, &temp_save_path)
+        .await
+        .with_context(|| format!("Font download from {} failed", url))?;
 
-    let mut hasher = Md5::new();
-    let mut stream = response.bytes_stream();
-
-    while let Some(chunk_result) = stream.next().await {
-        let chunk =
-            chunk_result.with_context(|| format!("Error reading download stream from {}", url))?;
-        hasher.update(&chunk);
-        dest.write_all(&chunk)
-            .with_context(|| format!("Failed to write chunk to temp file {:?}", temp_save_path))?;
-    }
-
-    dest.sync_all()
-        .with_context(|| format!("Failed to sync temporary font file {:?}", temp_save_path))?;
-    drop(dest);
-
-    let calculated_hash = format!("{:x}", hasher.finalize());
+    let calculated_hash = calculate_md5(&temp_save_path)?;
 
     if calculated_hash != expected_hash {
         fs::remove_file(&temp_save_path).ok();
