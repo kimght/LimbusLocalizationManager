@@ -2,15 +2,22 @@
 @reference "../../globals.css";
 
 .container {
-  @apply 
+  @apply
     flex flex-col items-center h-full
     p-2
-    border-r border-limbus-600/30 
-  ; 
+    border-r border-limbus-600/30
+  ;
 }
 
 .link {
   @apply text-limbus-500 p-4;
+
+  user-drag: none;
+  -webkit-user-drag: none;
+  user-select: none;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
 }
 
 .link:last-child {
@@ -27,6 +34,9 @@
 
 .active {
   @apply text-limbus-300 transition-colors duration-300;
+}
+
+.active > svg {
   filter: drop-shadow(0 0 2px var(--color-limbus-300));
   transition: filter .3s ease;
 }

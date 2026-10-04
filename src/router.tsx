@@ -3,6 +3,7 @@ import { WindowLayout } from "@/layouts/window";
 import { HomePage } from "@/pages/home";
 import { LocalizationsPage } from "@/pages/localizations";
 import { SettingsPage } from "@/pages/settings";
+import { ParkourPage } from "@/pages/parkour";
 import { AboutPage } from "@/pages/about";
 import { LocalizationPage } from "@/pages/localization";
 import { MainLayout } from "./layouts/main";
@@ -71,6 +72,10 @@ export const routes: RouteObject[] = [
           {
             path: "/about/glupo/light",
             element: <GlupoLightPage />,
+          },
+          {
+            path: "/about/parkour",
+            element: <ParkourPage />,
           },
         ],
       },

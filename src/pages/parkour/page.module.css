@@ -1,0 +1,6 @@
+@reference "tailwindcss";
+@reference "../../globals.css";
+
+.frame {
+  @apply flex-1 self-stretch w-full border-0;
+}

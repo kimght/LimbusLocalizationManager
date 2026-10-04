@@ -51,6 +51,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           VITE_APP_REPO_URL: "https://github.com/${{ github.repository }}"
+          VITE_APP_PARKOUR_URL: ${{ vars.VITE_APP_PARKOUR_URL }}
         with:
           args: ${{ matrix.args }}
 

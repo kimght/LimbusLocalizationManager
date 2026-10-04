@@ -58,6 +58,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_APP_REPO_URL: "https://github.com/${{ github.repository }}"
+          VITE_APP_PARKOUR_URL: ${{ vars.VITE_APP_PARKOUR_URL }}
         with:
           tagName: v__VERSION__
           releaseName: 'v__VERSION__'

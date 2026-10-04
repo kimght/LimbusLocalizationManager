@@ -1,7 +1,8 @@
 import { NavLink } from "react-router";
 import styles from "./navbar.module.css";
 import { cn } from "@/utils";
-import { Home, Info, Settings, Map } from "lucide-react";
+import { Home, Settings, Map } from "lucide-react";
+import AboutLink from "./about-link";
 
 function Navbar() {
   return (
@@ -15,9 +16,7 @@ function Navbar() {
       <NavLink to="/settings" className={getLinkClassName}>
         <Settings className="w-8 h-8" />
       </NavLink>
-      <NavLink to="/about" className={getLinkClassName}>
-        <Info className="w-8 h-8" />
-      </NavLink>
+      <AboutLink className={getLinkClassName} />
     </nav>
   );
 

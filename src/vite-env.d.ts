@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_APP_REPO_URL: string;
+  readonly VITE_APP_PARKOUR_URL: string;
 }
 
 interface ImportMeta {
