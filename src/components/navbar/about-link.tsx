@@ -25,6 +25,7 @@ const REST: Pose = { rise: 0, tilt: 0, transition: "tilt" };
 function AboutLink({ className }: { className: NavLinkProps["className"] }) {
   const navigate = useNavigate();
   const linkRef = useRef<HTMLAnchorElement>(null);
+  const iconRef = useRef<SVGSVGElement>(null);
   const clicks = useRef(0);
   const timer = useRef<number>();
   const fallEndsAt = useRef(0);
@@ -42,6 +43,7 @@ function AboutLink({ className }: { className: NavLinkProps["className"] }) {
       onClick={handleClick}
     >
       <Info
+        ref={iconRef}
         className="w-8 h-8 will-change-transform"
         style={{
           transform: `translateY(${-pose.rise}px) rotate(${pose.tilt + rollDeg}deg)`,
@@ -52,7 +54,8 @@ function AboutLink({ className }: { className: NavLinkProps["className"] }) {
   );
 
   function handleClick(event: MouseEvent) {
-    if (performance.now() < fallEndsAt.current) {
+    const offIcon = !iconRef.current?.contains(event.target as Node);
+    if (performance.now() < fallEndsAt.current || (pose.rise > 0 && offIcon)) {
       event.preventDefault();
       return;
     }
