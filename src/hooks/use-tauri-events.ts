@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
 import i18n from "@/i18n";
-import { AppState } from "@/stores/models";
+import { AppState, RemoteLocalizations } from "@/stores/models";
 import { useAppState } from "@/hooks/use-app-state";
 
 export function useTauriQuerySync() {
@@ -18,11 +18,22 @@ export function useTauriQuerySync() {
     );
 
     unlisteners.push(
-      listen("remote_localizations_updated", () => {
-        queryClient.invalidateQueries({
-          queryKey: ["localizations"],
-          refetchType: "none",
-        });
+      listen<RemoteLocalizations>("remote_localizations_updated", (event) => {
+        // `get_available_localizations` emits this too; refetching on that echo would
+        // loop, so refresh only when another command brought a different catalog.
+        const cached = queryClient.getQueryData<{
+          localizations: RemoteLocalizations["localizations"];
+        }>(["localizations"]);
+        const changed =
+          JSON.stringify(cached?.localizations) !==
+          JSON.stringify(event.payload.localizations);
+
+        if (
+          changed &&
+          queryClient.isFetching({ queryKey: ["localizations"] }) === 0
+        ) {
+          queryClient.invalidateQueries({ queryKey: ["localizations"] });
+        }
       })
     );
 

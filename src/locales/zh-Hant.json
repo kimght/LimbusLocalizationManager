@@ -39,6 +39,7 @@
   "error": {
     "install": "安裝 {{localization}} 失敗",
     "setGameDirectory": "設定遊戲目錄失敗",
+    "updateSettings": "儲存設定失敗",
     "somethingWentWrong": "發生錯誤！",
     "updateAndPlay": "更新失敗！",
     "uninstall": "解除安裝 {{localization}} 失敗",

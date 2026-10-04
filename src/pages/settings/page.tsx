@@ -1,10 +1,10 @@
 import styles from "./page.module.css";
-import { ArrowDown, FileText, Folder, FolderOpen, X } from "lucide-react";
+import { ArrowDown, Bug, FileText, Folder, FolderOpen, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toastError } from "@/components/toast/toast";
 import { languageNames } from "@/i18n";
-import { useLocation } from "react-router";
+import { NavLink, useLocation } from "react-router";
 import { cn, openConfigDir, openLogDir } from "@/utils";
 import {
   useAppState,
@@ -105,16 +105,20 @@ function Page() {
           <FileText size={16} />
           {t("settings.openConfig")}
         </button>
+        <NavLink
+          to="/debug"
+          className={cn(styles.button, "flex items-center justify-center")}
+          aria-label="Debug"
+          title="Debug"
+        >
+          <Bug size={16} />
+        </NavLink>
       </div>
     </div>
   );
 
   function handleSourceChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    if (!settings) return;
-    updateSettings.mutate({
-      ...settings,
-      selected_source: event.target.value,
-    });
+    updateSettings.mutate({ selected_source: event.target.value });
   }
 
   async function handleGameDirectoryPick() {
@@ -143,11 +147,7 @@ function Page() {
   }
 
   function handleLanguageChange(event: React.ChangeEvent<HTMLSelectElement>) {
-    if (!settings) return;
-    updateSettings.mutate({
-      ...settings,
-      language: event.target.value,
-    });
+    updateSettings.mutate({ language: event.target.value });
   }
 }
 

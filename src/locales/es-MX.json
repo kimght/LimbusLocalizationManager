@@ -39,6 +39,7 @@
   "error": {
     "install": "Instalación de {{localization}} fallida",
     "setGameDirectory": "Cambio de directorio del juego fallido",
+    "updateSettings": "No se pudo guardar la configuración",
     "somethingWentWrong": "¡Algo falló!",
     "updateAndPlay": "¡Actualización fallida!",
     "uninstall": "Desinstalación de {{localization}} fallida",

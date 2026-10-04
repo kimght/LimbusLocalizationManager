@@ -10,7 +10,7 @@ export function useInstallLocalization() {
 
   return useMutation({
     mutationFn: (localization: Localization) =>
-      invoke("install_localization", { localization }),
+      invoke("install_localization", { localizationId: localization.id }),
     onSuccess: (_data, localization) => {
       queryClient.invalidateQueries({ queryKey: ["appState"] });
       toastSuccess(
@@ -31,15 +31,17 @@ export function useUninstallLocalization() {
 
   return useMutation({
     mutationFn: (localization: Localization) =>
-      invoke("uninstall_localization", { localization }),
+      invoke("uninstall_localization", { localizationId: localization.id }),
     onSuccess: (_data, localization) => {
       queryClient.invalidateQueries({ queryKey: ["appState"] });
       toastSuccess(
         i18n.t("localization.uninstalled", { localization: localization.name })
       );
     },
-    onError: () => {
-      toastError(i18n.t("error.uninstall"));
+    onError: (_error, localization) => {
+      toastError(
+        i18n.t("error.uninstall", { localization: localization.name })
+      );
     },
   });
 }
@@ -49,15 +51,15 @@ export function useRepairLocalization() {
 
   return useMutation({
     mutationFn: (localization: Localization) =>
-      invoke("repair_localization", { localization }),
+      invoke("repair_localization", { localizationId: localization.id }),
     onSuccess: (_data, localization) => {
       queryClient.invalidateQueries({ queryKey: ["appState"] });
       toastSuccess(
         i18n.t("localization.repaired", { localization: localization.name })
       );
     },
-    onError: () => {
-      toastError(i18n.t("error.repair"));
+    onError: (_error, localization) => {
+      toastError(i18n.t("error.repair", { localization: localization.name }));
     },
   });
 }

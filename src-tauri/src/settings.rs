@@ -24,6 +24,12 @@ pub struct AppSettings {
     pub language: Option<String>,
 }
 
+#[derive(Deserialize, Debug)]
+pub struct SettingsPatch {
+    pub selected_source: Option<String>,
+    pub language: Option<String>,
+}
+
 impl AppSettings {
     pub fn default() -> Self {
         Self {
@@ -104,10 +110,15 @@ pub fn load_settings(app_handle: &tauri::AppHandle) -> Result<AppSettings, anyho
     }
 
     let config_content = fs::read_to_string(&config_path)?;
-    let mut settings: AppSettings = toml::from_str(&config_content).unwrap_or_else(|e| {
-        error!("Failed to parse config file: {}", e);
-        defaults.clone()
-    });
+    let mut settings: AppSettings = match toml::from_str(&config_content) {
+        Ok(settings) => settings,
+        Err(e) => {
+            error!("Failed to parse config file: {}", e);
+            crate::utils::back_up_corrupt_file(&config_path);
+            save_settings(app_handle, &defaults)?;
+            return Ok(defaults);
+        }
+    };
 
     if migrate_settings(&mut settings, &defaults) {
         save_settings(app_handle, &settings)?;
@@ -122,7 +133,7 @@ pub fn save_settings(
 ) -> Result<(), anyhow::Error> {
     let config_path = get_config_path(app_handle)?;
     let config_content = toml::to_string(settings)?;
-    fs::write(&config_path, config_content)?;
+    crate::utils::write_atomic(&config_path, config_content.as_bytes())?;
     debug!("Settings saved to: {:?}", config_path);
     Ok(())
 }

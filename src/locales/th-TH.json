@@ -39,6 +39,7 @@
   "error": {
     "install": "ติดตั้ง {{localization}} ล้มเหลว",
     "setGameDirectory": "ตั้งค่าตำแหน่งไฟล์เกมล้มเหลว",
+    "updateSettings": "บันทึกการตั้งค่าไม่สำเร็จ",
     "somethingWentWrong": "มีอะไรก็ไม่รู้ผิดพลาด!",
     "updateAndPlay": "Update failed!",
     "uninstall": "ถอนการติดตั้งล้มเหลว {{localization}}",

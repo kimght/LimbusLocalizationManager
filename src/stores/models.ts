@@ -11,6 +11,10 @@ export interface AppSettings {
   language: string | null;
 }
 
+export type SettingsPatch = Partial<
+  Pick<AppSettings, "selected_source" | "language">
+>;
+
 export interface InstalledLocalization {
   id: string;
   version: string;

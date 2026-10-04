@@ -39,6 +39,7 @@
   "error": {
     "install": "Не удалось установить локализацию {{localization}}",
     "setGameDirectory": "Не удалось установить директорию игры",
+    "updateSettings": "Не удалось сохранить настройки",
     "somethingWentWrong": "Что-то пошло не так!",
     "updateAndPlay": "Ошибка при обновлении локализации!",
     "uninstall": "Не удалось удалить {{localization}}",

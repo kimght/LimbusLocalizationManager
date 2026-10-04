@@ -39,6 +39,7 @@
   "error": {
     "install": "Falha ao instalar {{localization}}",
     "setGameDirectory": "Falha em setar o diretório do jogo",
+    "updateSettings": "Falha ao salvar as configurações",
     "somethingWentWrong": "Alguma coisa deu errado!",
     "updateAndPlay": "Falha na atualização!",
     "uninstall": "Falha em desinstalar {{localization}}",

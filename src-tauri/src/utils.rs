@@ -1,17 +1,19 @@
 use anyhow::Context;
 use futures::stream::StreamExt;
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use md5::{Digest, Md5};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::{
+    ffi::OsStr,
     fs,
-    io::{self, BufReader, Read, Seek, Write},
-    path::{Path, PathBuf},
+    io::{self, BufReader, Read, Write},
+    path::{Component, Path, PathBuf},
     time::Duration,
 };
-use tempfile::Builder;
+use tempfile::{Builder, NamedTempFile};
+use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use zip::ZipArchive;
 
 const METADATA_FILE_NAME: &str = "llc_config.toml";
@@ -251,6 +253,37 @@ pub struct Localization {
     pub format: Format,
 }
 
+impl Localization {
+    fn validate(&self) -> Result<(), anyhow::Error> {
+        validate_path_component(&self.id, "localization id")?;
+        for font in &self.fonts {
+            validate_path_component(&font.name, "font name")?;
+            anyhow::ensure!(
+                font.hash.len() == 32 && font.hash.bytes().all(|b| b.is_ascii_hexdigit()),
+                "Invalid font hash {:?}",
+                font.hash
+            );
+        }
+        Ok(())
+    }
+}
+
+fn validate_path_component(value: &str, what: &str) -> Result<(), anyhow::Error> {
+    let mut components = Path::new(value).components();
+    let is_single_name = matches!(
+        (components.next(), components.next()),
+        (Some(Component::Normal(name)), None) if name == OsStr::new(value)
+    );
+
+    anyhow::ensure!(
+        is_single_name && !value.contains(['/', '\\', ':']),
+        "Invalid {}: {:?}",
+        what,
+        value
+    );
+    Ok(())
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct InstalledLocalization {
     pub id: String,
@@ -271,46 +304,73 @@ impl InstalledMetadata {
             installed: HashMap::new(),
         }
     }
+}
 
-    pub fn with_localization(localization: &Localization, source: &String) -> Self {
-        let mut installed_metadata = Self::new();
+async fn blocking<T: Send + 'static>(
+    work: impl FnOnce() -> Result<T, anyhow::Error> + Send + 'static,
+) -> Result<T, anyhow::Error> {
+    tokio::task::spawn_blocking(work)
+        .await
+        .context("Blocking task failed")?
+}
 
-        installed_metadata.installed.insert(
-            localization.id.clone(),
-            InstalledLocalization {
-                id: localization.id.clone(),
-                version: localization.version.clone(),
-                source: source.clone(),
-            },
-        );
+pub fn write_atomic(path: &Path, contents: &[u8]) -> Result<(), anyhow::Error> {
+    let directory = path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("{:?} has no parent directory", path))?;
 
-        installed_metadata
+    let mut file = NamedTempFile::new_in(directory)
+        .with_context(|| format!("Failed to create a temporary file in {:?}", directory))?;
+    file.write_all(contents)
+        .with_context(|| format!("Failed to write a temporary file for {:?}", path))?;
+    file.as_file()
+        .sync_all()
+        .with_context(|| format!("Failed to flush a temporary file for {:?}", path))?;
+    file.persist(path)
+        .with_context(|| format!("Failed to replace {:?}", path))?;
+    Ok(())
+}
+
+pub fn back_up_corrupt_file(path: &Path) {
+    let mut backup = path.as_os_str().to_owned();
+    backup.push(".bak");
+    let backup = PathBuf::from(backup);
+
+    match fs::rename(path, &backup) {
+        Ok(()) => warn!("Moved unreadable {:?} to {:?}", path, backup),
+        Err(e) => error!("Failed to back up unreadable {:?}: {}", path, e),
     }
 }
 
-pub fn load_installed_metadata(game_path: &PathBuf) -> Result<InstalledMetadata, anyhow::Error> {
+pub fn load_installed_metadata(game_path: &Path) -> Result<InstalledMetadata, anyhow::Error> {
     let config_path = game_path.join(METADATA_FILE_NAME);
 
     if !config_path.exists() {
         let metadata = InstalledMetadata::new();
-        let config_content = toml::to_string(&metadata)?;
-        fs::write(&config_path, config_content)?;
+        save_installed_metadata(game_path, &metadata)?;
         return Ok(metadata);
     }
 
     let config_content = fs::read_to_string(&config_path)?;
-    let metadata: InstalledMetadata = toml::from_str(&config_content)?;
-    Ok(metadata)
+    match toml::from_str(&config_content) {
+        Ok(metadata) => Ok(metadata),
+        Err(e) => {
+            error!("Failed to parse {:?}: {}", config_path, e);
+            back_up_corrupt_file(&config_path);
+            Ok(InstalledMetadata::new())
+        }
+    }
 }
 
 pub fn save_installed_metadata(
-    game_path: &PathBuf,
+    game_path: &Path,
     metadata: &InstalledMetadata,
 ) -> Result<(), anyhow::Error> {
-    let config_path = game_path.join(METADATA_FILE_NAME);
     let config_content = toml::to_string(metadata)?;
-    fs::write(&config_path, config_content)?;
-    Ok(())
+    write_atomic(
+        &game_path.join(METADATA_FILE_NAME),
+        config_content.as_bytes(),
+    )
 }
 
 pub async fn fetch_available_localizations(url: &str) -> Result<Vec<Localization>, anyhow::Error> {
@@ -322,160 +382,98 @@ pub async fn fetch_available_localizations(url: &str) -> Result<Vec<Localization
         return Err(anyhow::anyhow!("HTTP error: {}", response.status()));
     }
 
-    let localizations: AvailableLocalizations = response
+    let available: AvailableLocalizations = response
         .json()
         .await
         .with_context(|| format!("Failed to parse JSON"))?;
 
-    Ok(localizations.localizations)
+    Ok(available
+        .localizations
+        .into_iter()
+        .filter(|localization| match localization.validate() {
+            Ok(()) => true,
+            Err(e) => {
+                warn!("Skipping localization {:?}: {:#}", localization.id, e);
+                false
+            }
+        })
+        .collect())
 }
 
-pub async fn install_fonts_for_localization(
-    game_path: &PathBuf,
-    localization: &Localization,
-) -> Result<(), anyhow::Error> {
-    let font_cache_dir = game_path.join("FontCache");
-    fs::create_dir_all(&font_cache_dir)
-        .with_context(|| format!("Failed to create FontCache directory"))?;
+fn lang_dir(game_path: &Path) -> PathBuf {
+    game_path.join("LimbusCompany_Data").join("Lang")
+}
 
-    for font_info in &localization.fonts {
-        let font_url = &font_info.url;
-        let expected_hash = &font_info.hash;
+const STAGING_DIR: &str = ".llm-staging";
+const STAGING_RANDOM_LEN: usize = 6;
 
-        let extension = Path::new(font_url)
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext.to_lowercase())
-            .filter(|ext| ext == "ttf" || ext == "otf")
-            .unwrap_or_else(|| "ttf".to_string());
+fn create_staging_dir(
+    game_path: &Path,
+    localization_id: &str,
+) -> Result<tempfile::TempDir, anyhow::Error> {
+    let root = game_path.join(STAGING_DIR);
+    fs::create_dir_all(&root).with_context(|| format!("Failed to create {:?}", root))?;
 
-        let chache_font_filename = format!("{}.{}", expected_hash, extension);
-        let font_cache_path = font_cache_dir.join(&chache_font_filename);
+    let suffix = format!(".{}", localization_id);
+    for entry in fs::read_dir(&root)
+        .with_context(|| format!("Failed to read {:?}", root))?
+        .flatten()
+    {
+        let is_stale = entry
+            .file_name()
+            .to_str()
+            .and_then(|name| name.get(STAGING_RANDOM_LEN..))
+            .is_some_and(|rest| rest == suffix);
 
-        let mut needs_download = true;
-        if font_cache_path.exists() {
-            debug!("Font found in cache: {:?}", font_cache_path);
-            match calculate_md5(&font_cache_path) {
-                Ok(calculated_hash) => {
-                    if calculated_hash == *expected_hash {
-                        debug!("Cached font hash matches. Skipping download.");
-                        needs_download = false;
-                    } else {
-                        debug!(
-                            "Cached font hash mismatch (expected: {}, found: {}). Re-downloading.",
-                            expected_hash, calculated_hash
-                        );
-                        fs::remove_file(&font_cache_path).with_context(|| {
-                            format!(
-                                "Failed to remove mismatched cached font {:?}",
-                                font_cache_path
-                            )
-                        })?;
-                    }
-                }
-                Err(e) => {
-                    debug!(
-                        "Failed to calculate hash for cached font {:?}: {}. Re-downloading.",
-                        font_cache_path, e
-                    );
-                    fs::remove_file(&font_cache_path).with_context(|| {
-                        format!(
-                            "Failed to remove potentially corrupted cached font {:?}",
-                            font_cache_path
-                        )
-                    })?;
-                }
+        if is_stale {
+            info!("Removing stale staging directory {:?}", entry.path());
+            if let Err(e) = fs::remove_dir_all(entry.path()) {
+                warn!("Failed to remove {:?}: {}", entry.path(), e);
             }
         }
-
-        if needs_download {
-            info!("Downloading font from: {}", font_url);
-            download_and_validate_font(font_url, &font_cache_path, expected_hash).await?;
-        } else {
-            info!("Using cached font: {:?}", font_cache_path);
-        }
-
-        let target_font_path = game_path
-            .join("LimbusCompany_Data")
-            .join("Lang")
-            .join(&localization.id)
-            .join("Font")
-            .join(&font_info.name);
-
-        let target_fonts_dir = target_font_path
-            .parent()
-            .ok_or_else(|| anyhow::anyhow!("Invalid font target path"))?;
-
-        fs::create_dir_all(&target_fonts_dir).with_context(|| {
-            format!(
-                "Failed to create target Font directory {:?}",
-                target_fonts_dir
-            )
-        })?;
-
-        let mut needs_copy = true;
-        if target_font_path.exists() {
-            match calculate_md5(&target_font_path) {
-                Ok(target_hash) => {
-                    if target_hash == *expected_hash {
-                        debug!(
-                            "Target font {:?} already exists and hash matches. Skipping copy.",
-                            target_font_path
-                        );
-                        needs_copy = false;
-                    } else {
-                        debug!(
-                            "Target font {:?} exists but hash mismatches. Overwriting.",
-                            target_font_path
-                        );
-                    }
-                }
-                Err(e) => {
-                    warn!(
-                        "Failed to calculate hash for target font {:?}: {}. Overwriting.",
-                        target_font_path, e
-                    );
-                }
-            }
-        }
-
-        if needs_copy {
-            debug!(
-                "Copying font from cache {:?} to {:?}",
-                font_cache_path, target_font_path
-            );
-            fs::copy(&font_cache_path, &target_font_path).with_context(|| {
-                format!(
-                    "Failed to copy font from cache {:?} to target {:?}",
-                    font_cache_path, target_font_path
-                )
-            })?;
-        }
-
-        info!(
-            "Successfully installed font for localization '{}'",
-            localization.id
-        );
     }
 
-    Ok(())
+    Builder::new()
+        .prefix("")
+        .rand_bytes(STAGING_RANDOM_LEN)
+        .suffix(&suffix)
+        .tempdir_in(&root)
+        .with_context(|| format!("Failed to create a staging directory in {:?}", root))
 }
 
 pub async fn install_localization(
-    game_path: &PathBuf,
+    game_path: &Path,
     localization: &Localization,
 ) -> Result<(), anyhow::Error> {
-    let temp_dir = create_temp_directory(&localization.id)?;
-    let extract_path = temp_dir.path();
+    localization.validate()?;
 
-    let download_path = download_localization_file(&localization, &temp_dir).await?;
+    let target = lang_dir(game_path).join(&localization.id);
 
-    debug!("Extracting localization to: {:?}", extract_path);
-    extract_zip_archive(&download_path, extract_path)?;
+    let staging = {
+        let lang_dir = lang_dir(game_path);
+        let game_path = game_path.to_path_buf();
+        let id = localization.id.clone();
+        blocking(move || {
+            fs::create_dir_all(&lang_dir)
+                .with_context(|| format!("Failed to create {:?}", lang_dir))?;
+            create_staging_dir(&game_path, &id)
+        })
+        .await?
+    };
 
-    let language_dir = find_language_directory(extract_path, &localization.format)?;
-    install_to_game_directory(&game_path, &language_dir, &localization)?;
+    let result = stage_and_swap(
+        game_path,
+        localization,
+        staging.path().to_path_buf(),
+        target,
+    )
+    .await;
 
+    if let Err(e) = blocking(move || Ok(staging.close()?)).await {
+        warn!("Failed to remove the staging directory: {:#}", e);
+    }
+
+    result?;
     info!(
         "Successfully installed localization '{}' version '{}'",
         localization.id, localization.version
@@ -483,25 +481,178 @@ pub async fn install_localization(
     Ok(())
 }
 
-pub async fn uninstall_localization(
-    game_path: &PathBuf,
+async fn stage_and_swap(
+    game_path: &Path,
     localization: &Localization,
+    staging: PathBuf,
+    target: PathBuf,
 ) -> Result<(), anyhow::Error> {
-    let target_base_path = game_path.join("LimbusCompany_Data").join("Lang");
-    let target_path = target_base_path.join(&localization.id);
+    let archive = staging.join("localization.zip");
 
-    if !target_path.exists() {
-        info!(
-            "Localization '{}' not found, skipping uninstall",
-            localization.id
-        );
-        return Ok(());
+    download_to_file(&localization.url, &archive)
+        .await
+        .with_context(|| format!("Failed to download {}", localization.url))?;
+
+    let size = tokio::fs::metadata(&archive)
+        .await
+        .with_context(|| format!("Failed to get file size"))?
+        .len();
+    anyhow::ensure!(
+        size == localization.size,
+        "File size mismatch: expected {} bytes, got {}",
+        localization.size,
+        size
+    );
+    info!(
+        "Successfully downloaded localization from: {}",
+        &localization.url
+    );
+
+    let extract_path = staging.join("extract");
+    let format = localization.format.clone();
+    let language_dir = blocking(move || {
+        debug!("Extracting localization to: {:?}", extract_path);
+        extract_zip_archive(&archive, &extract_path)?;
+        find_language_directory(&extract_path, &format)
+    })
+    .await?;
+
+    install_fonts(game_path, &localization.fonts, &language_dir.join("Font")).await?;
+
+    blocking(move || swap_into_place(&language_dir, &target, &staging)).await
+}
+
+fn swap_into_place(new_dir: &Path, target: &Path, staging: &Path) -> Result<(), anyhow::Error> {
+    let previous = staging.join("previous");
+
+    let had_previous = match fs::rename(target, &previous) {
+        Ok(()) => true,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => false,
+        Err(e) => {
+            return Err(e).with_context(|| format!("Failed to move aside {:?}", target));
+        }
+    };
+
+    if let Err(e) = fs::rename(new_dir, target) {
+        if had_previous {
+            if let Err(restore) = fs::rename(&previous, target) {
+                error!("Failed to restore {:?}: {}", target, restore);
+            }
+        }
+        return Err(e).with_context(|| format!("Failed to move the new files into {:?}", target));
     }
 
-    fs::remove_dir_all(&target_path)
-        .with_context(|| format!("Failed to uninstall localization '{}'", localization.id))?;
+    debug!("Installed {:?}", target);
+    Ok(())
+}
+
+async fn install_fonts(
+    game_path: &Path,
+    fonts: &[Font],
+    font_dir: &Path,
+) -> Result<(), anyhow::Error> {
+    let cache_dir = game_path.join("FontCache");
+
+    for font in fonts {
+        let cached = cache_font(&cache_dir, font).await?;
+        let target_dir = font_dir.to_path_buf();
+        let target = font_dir.join(&font.name);
+
+        blocking(move || {
+            fs::create_dir_all(&target_dir)
+                .with_context(|| format!("Failed to create {:?}", target_dir))?;
+            debug!("Copying font from cache {:?} to {:?}", cached, target);
+            fs::copy(&cached, &target).with_context(|| {
+                format!("Failed to copy font from {:?} to {:?}", cached, target)
+            })?;
+            Ok(())
+        })
+        .await?;
+
+        info!("Installed font {}", font.name);
+    }
 
     Ok(())
+}
+
+async fn cache_font(cache_dir: &Path, font: &Font) -> Result<PathBuf, anyhow::Error> {
+    let extension = Path::new(&font.url)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.to_lowercase())
+        .filter(|ext| ext == "ttf" || ext == "otf")
+        .unwrap_or_else(|| "ttf".to_string());
+
+    let cache_path = cache_dir.join(format!("{}.{}", font.hash, extension));
+
+    let is_cached = {
+        let cache_dir = cache_dir.to_path_buf();
+        let cache_path = cache_path.clone();
+        let expected_hash = font.hash.clone();
+        blocking(move || {
+            fs::create_dir_all(&cache_dir)
+                .with_context(|| format!("Failed to create {:?}", cache_dir))?;
+
+            if !cache_path.exists() {
+                return Ok(false);
+            }
+
+            match calculate_md5(&cache_path) {
+                Ok(hash) if hash == expected_hash => return Ok(true),
+                Ok(hash) => debug!(
+                    "Cached font {:?} has hash {}, expected {}. Re-downloading.",
+                    cache_path, hash, expected_hash
+                ),
+                Err(e) => debug!(
+                    "Failed to hash cached font {:?}: {:#}. Re-downloading.",
+                    cache_path, e
+                ),
+            }
+
+            fs::remove_file(&cache_path)
+                .with_context(|| format!("Failed to remove cached font {:?}", cache_path))?;
+            Ok(false)
+        })
+        .await?
+    };
+
+    if is_cached {
+        info!("Using cached font: {:?}", cache_path);
+    } else {
+        info!("Downloading font from: {}", font.url);
+        download_and_validate_font(&font.url, cache_dir, &cache_path, &font.hash).await?;
+    }
+
+    Ok(cache_path)
+}
+
+pub async fn uninstall_localization(
+    game_path: &Path,
+    localization_id: &str,
+) -> Result<(), anyhow::Error> {
+    validate_path_component(localization_id, "localization id")?;
+
+    let game_path = game_path.to_path_buf();
+    let id = localization_id.to_owned();
+
+    blocking(move || {
+        let target = lang_dir(&game_path).join(&id);
+        if !target.exists() {
+            info!("Localization '{}' not found, skipping uninstall", id);
+            return Ok(());
+        }
+
+        let staging = create_staging_dir(&game_path, &id)?;
+
+        fs::rename(&target, staging.path().join("previous"))
+            .with_context(|| format!("Failed to uninstall localization '{}'", id))?;
+
+        if let Err(e) = staging.close() {
+            warn!("Failed to delete files of uninstalled '{}': {}", id, e);
+        }
+        Ok(())
+    })
+    .await
 }
 
 pub async fn get_latest_version() -> Result<String, anyhow::Error> {
@@ -529,11 +680,8 @@ pub async fn get_latest_version() -> Result<String, anyhow::Error> {
     Ok(tag_name.to_string())
 }
 
-pub fn validate_game_config(game_path: &PathBuf) -> Result<(), anyhow::Error> {
-    let config_path = game_path
-        .join("LimbusCompany_Data")
-        .join("Lang")
-        .join("config.json");
+pub fn validate_game_config(game_path: &Path) -> Result<(), anyhow::Error> {
+    let config_path = lang_dir(game_path).join("config.json");
 
     if !config_path.exists() {
         debug!("Config file does not exist, the game will create it");
@@ -553,10 +701,7 @@ pub fn validate_game_config(game_path: &PathBuf) -> Result<(), anyhow::Error> {
                 return Err(anyhow::anyhow!("Config file is empty"));
             }
 
-            let active_localization = game_path
-                .join("LimbusCompany_Data")
-                .join("Lang")
-                .join(&config.lang);
+            let active_localization = lang_dir(game_path).join(&config.lang);
 
             if !active_localization.exists() {
                 debug!("Active localization does not exist, deleting config file");
@@ -576,46 +721,15 @@ pub fn validate_game_config(game_path: &PathBuf) -> Result<(), anyhow::Error> {
     }
 }
 
-fn create_temp_directory(localization_id: &str) -> Result<tempfile::TempDir, anyhow::Error> {
-    Builder::new()
-        .prefix(&format!("limbus_loc_{}", localization_id))
-        .tempdir()
-        .with_context(|| format!("Failed to create temporary directory"))
-}
-
-async fn download_localization_file(
-    localization: &Localization,
-    temp_dir: &tempfile::TempDir,
-) -> Result<PathBuf, anyhow::Error> {
-    let download_path = temp_dir.path().join("localization.zip");
-
-    download_to_file(&localization.url, &download_path)
-        .await
-        .with_context(|| format!("Failed to download {}", localization.url))?;
-
-    let size = fs::metadata(&download_path)
-        .with_context(|| format!("Failed to get file size"))?
-        .len();
-
-    if size != localization.size {
-        return Err(anyhow::anyhow!("File size mismatch"));
-    }
-
-    info!(
-        "Successfully downloaded localization from: {}",
-        &localization.url
-    );
-    Ok(download_path)
-}
-
 enum AttemptError {
     Retry(anyhow::Error),
     Fatal(anyhow::Error),
 }
 
 async fn download_to_file(url: &str, path: &Path) -> Result<(), anyhow::Error> {
-    let mut file =
-        fs::File::create(path).with_context(|| format!("Failed to create {:?}", path))?;
+    let mut file = tokio::fs::File::create(path)
+        .await
+        .with_context(|| format!("Failed to create {:?}", path))?;
     let mut downloaded = 0;
     let mut furthest = 0;
     let mut failures = 0;
@@ -646,14 +760,18 @@ async fn download_to_file(url: &str, path: &Path) -> Result<(), anyhow::Error> {
         }
     }
 
-    file.sync_all()
+    file.flush()
+        .await
         .with_context(|| format!("Failed to flush {:?}", path))?;
+    file.sync_all()
+        .await
+        .with_context(|| format!("Failed to sync {:?}", path))?;
     Ok(())
 }
 
 async fn download_attempt(
     url: &str,
-    file: &mut fs::File,
+    file: &mut tokio::fs::File,
     downloaded: &mut u64,
 ) -> Result<(), AttemptError> {
     let start = *downloaded;
@@ -680,8 +798,12 @@ async fn download_attempt(
             url, start
         );
         file.set_len(0)
-            .and_then(|()| file.rewind())
+            .await
             .context("Failed to truncate partial download")
+            .map_err(AttemptError::Fatal)?;
+        file.seek(io::SeekFrom::Start(0))
+            .await
+            .context("Failed to rewind partial download")
             .map_err(AttemptError::Fatal)?;
         *downloaded = 0;
         if !status.is_success() {
@@ -710,6 +832,7 @@ async fn download_attempt(
             .context("Failed to read chunk")
             .map_err(AttemptError::Retry)?;
         file.write_all(&chunk)
+            .await
             .context("Failed to write data chunk to file")
             .map_err(AttemptError::Fatal)?;
         *downloaded += chunk.len() as u64;
@@ -839,68 +962,6 @@ fn find_language_dir(extract_path: &Path) -> Result<PathBuf, anyhow::Error> {
     }
 }
 
-fn install_to_game_directory(
-    game_path: &PathBuf,
-    language_dir: &Path,
-    localization: &Localization,
-) -> Result<(), anyhow::Error> {
-    let target_base_path = game_path.join("LimbusCompany_Data").join("Lang");
-    let target_path = target_base_path.join(&localization.id);
-
-    debug!("Target installation path: {:?}", target_path);
-
-    if target_path.exists() {
-        info!("Removing existing localization at {:?}", target_path);
-        fs::remove_dir_all(&target_path)
-            .with_context(|| format!("Failed to remove existing localization directory"))?;
-    }
-
-    fs::create_dir_all(&target_base_path)
-        .with_context(|| format!("Failed to create base Lang directory"))?;
-
-    fs::create_dir(&target_path)
-        .with_context(|| format!("Failed to create target localization directory"))?;
-
-    debug!("Moving files from {:?} to {:?}", language_dir, target_path);
-    copy_directory_contents(language_dir, &target_path)?;
-
-    Ok(())
-}
-
-fn copy_directory_contents(src_dir: &Path, dest_dir: &Path) -> Result<(), anyhow::Error> {
-    for entry in fs::read_dir(src_dir)
-        .with_context(|| format!("Failed to read language directory {:?}", src_dir))?
-    {
-        let entry = entry.with_context(|| format!("Error reading entry in language dir"))?;
-        let source_path = entry.path();
-        let file_name = entry.file_name();
-
-        if file_name == "localization.zip" {
-            debug!("Skipping localization.zip file");
-            continue;
-        }
-
-        let destination_path = dest_dir.join(&file_name);
-
-        debug!("Copying {:?} -> {:?}", source_path, destination_path);
-
-        if source_path.is_dir() {
-            fs::create_dir_all(&destination_path)
-                .with_context(|| format!("Failed to create directory {:?}", destination_path))?;
-            copy_directory_contents(&source_path, &destination_path)?;
-        } else {
-            fs::copy(&source_path, &destination_path).with_context(|| {
-                format!(
-                    "Failed to copy file {:?} to {:?}",
-                    source_path, destination_path
-                )
-            })?;
-        }
-    }
-
-    Ok(())
-}
-
 fn calculate_md5(file_path: &Path) -> Result<String, anyhow::Error> {
     let file = fs::File::open(file_path)
         .with_context(|| format!("Failed to open file for hashing {:?}", file_path))?;
@@ -925,43 +986,44 @@ fn calculate_md5(file_path: &Path) -> Result<String, anyhow::Error> {
 
 async fn download_and_validate_font(
     url: &str,
+    cache_dir: &Path,
     save_path: &Path,
     expected_hash: &str,
 ) -> Result<(), anyhow::Error> {
     debug!("Starting download from {} to {:?}", url, save_path);
 
-    if let Some(parent_dir) = save_path.parent() {
-        fs::create_dir_all(parent_dir).with_context(|| {
-            format!("Failed to create directory for font file {:?}", parent_dir)
-        })?;
-    }
+    let temp_path = {
+        let cache_dir = cache_dir.to_path_buf();
+        blocking(move || {
+            Ok(NamedTempFile::new_in(&cache_dir)
+                .with_context(|| format!("Failed to create a temporary file in {:?}", cache_dir))?
+                .into_temp_path())
+        })
+        .await?
+    };
 
-    let temp_save_path = save_path.with_extension("tmp_download");
-
-    download_to_file(url, &temp_save_path)
+    download_to_file(url, &temp_path)
         .await
         .with_context(|| format!("Font download from {} failed", url))?;
 
-    let calculated_hash = calculate_md5(&temp_save_path)?;
+    let hashed_path = temp_path.to_path_buf();
+    let calculated_hash = blocking(move || calculate_md5(&hashed_path)).await?;
 
-    if calculated_hash != expected_hash {
-        fs::remove_file(&temp_save_path).ok();
-        Err(anyhow::anyhow!(
-            "Font hash mismatch for {}. Expected: {}, Calculated: {}. Download saved to {:?} was discarded.",
-            url, expected_hash, calculated_hash, temp_save_path
-        ))
-    } else {
-        fs::rename(&temp_save_path, save_path).with_context(|| {
-            format!(
-                "Failed to rename temporary font file {:?} to {:?}",
-                temp_save_path, save_path
-            )
-        })?;
+    anyhow::ensure!(
+        calculated_hash == expected_hash,
+        "Font hash mismatch for {}. Expected: {}, Calculated: {}.",
+        url,
+        expected_hash,
+        calculated_hash
+    );
 
-        info!(
-            "Font downloaded successfully to {:?} and hash validated ({})",
-            save_path, calculated_hash
-        );
-        Ok(())
-    }
+    temp_path
+        .persist(save_path)
+        .with_context(|| format!("Failed to move downloaded font to {:?}", save_path))?;
+
+    info!(
+        "Font downloaded successfully to {:?} and hash validated ({})",
+        save_path, calculated_hash
+    );
+    Ok(())
 }

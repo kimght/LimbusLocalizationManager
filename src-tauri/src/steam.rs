@@ -2,7 +2,7 @@ use anyhow::{Context, Error};
 use std::io;
 use std::path::PathBuf;
 use std::process::Command;
-use sysinfo::System;
+use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, System};
 
 const LIMBUS_STEAM_ID: u32 = 1973530;
 
@@ -154,13 +154,22 @@ pub fn get_game_directory() -> Result<PathBuf, Error> {
     Err(anyhow::anyhow!("Limbus not found in any Steam library"))
 }
 
-pub fn is_game_running() -> bool {
-    let system = System::new_all();
+pub async fn is_game_running() -> Result<bool, Error> {
+    tokio::task::spawn_blocking(|| {
+        let mut system = System::new();
+        system.refresh_processes_specifics(
+            ProcessesToUpdate::All,
+            true,
+            ProcessRefreshKind::nothing().without_tasks(),
+        );
 
-    system.processes().iter().any(|(_, process)| {
-        process
-            .name()
-            .to_str()
-            .map_or(false, |name| name.starts_with("LimbusCompany.e"))
+        system.processes().values().any(|process| {
+            process
+                .name()
+                .to_str()
+                .is_some_and(|name| name.starts_with("LimbusCompany.e"))
+        })
     })
+    .await
+    .context("Process scan task failed")
 }

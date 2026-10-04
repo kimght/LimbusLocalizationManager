@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
-import { AppState, AppSettings } from "@/stores/models";
+import { AppState, SettingsPatch } from "@/stores/models";
+import { toastError } from "@/components/toast/toast";
 import i18n, { languageNames } from "@/i18n";
 import { useMemo } from "react";
 
@@ -70,11 +71,13 @@ export function useUpdateSettings() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (newSettings: AppSettings) =>
-      invoke("update_settings", { newSettings }),
+    mutationFn: (patch: SettingsPatch) => invoke("update_settings", { patch }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appState"] });
       queryClient.invalidateQueries({ queryKey: ["localizations"] });
+    },
+    onError: () => {
+      toastError(i18n.t("error.updateSettings"));
     },
   });
 }

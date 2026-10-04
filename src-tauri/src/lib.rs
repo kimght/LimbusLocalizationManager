@@ -5,6 +5,8 @@ mod utils;
 use dashmap::DashMap;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tauri::{Emitter, Manager, State};
 use tokio::sync::Mutex;
 
@@ -31,20 +33,49 @@ impl AppState {
         app_state
     }
 
-    fn game_path(&self) -> anyhow::Result<std::path::PathBuf> {
+    fn game_path(&self) -> anyhow::Result<PathBuf> {
         match &self.settings.game_directory {
-            Some(dir) => Ok(std::path::PathBuf::from(dir)),
+            Some(dir) => Ok(PathBuf::from(dir)),
             None => steam::get_game_directory(),
         }
     }
 
-    fn update_settings(
+    fn active_source(&self) -> Result<(String, String), String> {
+        let name = self
+            .settings
+            .selected_source
+            .as_ref()
+            .ok_or("No active source selected")?;
+        let source = self
+            .settings
+            .sources
+            .get(name)
+            .ok_or("No active source selected")?;
+        Ok((name.clone(), source.url.clone()))
+    }
+
+    fn apply_settings_patch(
         &mut self,
         app_handle: &tauri::AppHandle,
-        new_settings: &settings::AppSettings,
+        patch: settings::SettingsPatch,
     ) -> anyhow::Result<()> {
-        settings::save_settings(app_handle, &new_settings)?;
-        self.settings = new_settings.clone();
+        let mut settings = self.settings.clone();
+
+        if let Some(source) = patch.selected_source {
+            anyhow::ensure!(
+                settings.sources.contains_key(&source),
+                "Unknown source {:?}",
+                source
+            );
+            settings.selected_source = Some(source);
+        }
+
+        if let Some(language) = patch.language {
+            settings.language = Some(language);
+        }
+
+        settings::save_settings(app_handle, &settings)?;
+        self.settings = settings;
         Ok(())
     }
 
@@ -59,7 +90,7 @@ impl AppState {
                 return Err(anyhow::anyhow!("Invalid game directory"));
             }
 
-            std::path::PathBuf::from(game_directory)
+            PathBuf::from(game_directory)
         } else {
             steam::get_game_directory()?
         };
@@ -96,7 +127,127 @@ struct RemoteLocalizations {
 
 type AppStateMutex = Mutex<AppState>;
 type RemoteLocalizationsMutex = Mutex<Option<RemoteLocalizations>>;
-type LocalizationLocks = DashMap<(String, std::path::PathBuf), Mutex<()>>;
+type LocalizationLocks = DashMap<(String, PathBuf), Arc<Mutex<()>>>;
+
+fn localization_lock(locks: &LocalizationLocks, id: &str, game_path: &Path) -> Arc<Mutex<()>> {
+    locks
+        .entry((id.to_owned(), game_path.to_path_buf()))
+        .or_default()
+        .clone()
+}
+
+async fn ensure_game_not_running() -> Result<(), String> {
+    match steam::is_game_running().await {
+        Ok(false) => Ok(()),
+        Ok(true) => Err("Game is running".to_string()),
+        Err(e) => {
+            error!("Failed to check whether the game is running: {:?}", e);
+            Err(e.to_string())
+        }
+    }
+}
+
+async fn refresh_remote_localizations(
+    app_handle: &tauri::AppHandle,
+    state: &AppStateMutex,
+    remote_localizations: &RemoteLocalizationsMutex,
+) -> Result<RemoteLocalizations, String> {
+    let (source, url) = state.lock().await.active_source()?;
+
+    let localizations = utils::fetch_available_localizations(&url)
+        .await
+        .map_err(|e| {
+            error!("Failed to fetch available localizations: {:?}", e);
+            e.to_string()
+        })?;
+
+    let fetched = RemoteLocalizations {
+        source,
+        localizations,
+    };
+
+    *remote_localizations.lock().await = Some(fetched.clone());
+    app_handle
+        .emit("remote_localizations_updated", &fetched)
+        .map_err(|e| e.to_string())?;
+    Ok(fetched)
+}
+
+async fn resolve_localization(
+    app_handle: &tauri::AppHandle,
+    state: &AppStateMutex,
+    remote_localizations: &RemoteLocalizationsMutex,
+    id: &str,
+) -> Result<(utils::Localization, String), String> {
+    let (active_source, _) = state.lock().await.active_source()?;
+
+    let cached = remote_localizations
+        .lock()
+        .await
+        .as_ref()
+        .filter(|remote| remote.source == active_source)
+        .and_then(|remote| remote.localizations.iter().find(|l| l.id == id).cloned());
+
+    if let Some(localization) = cached {
+        return Ok((localization, active_source));
+    }
+
+    let fetched = refresh_remote_localizations(app_handle, state, remote_localizations).await?;
+    let localization = fetched
+        .localizations
+        .into_iter()
+        .find(|l| l.id == id)
+        .ok_or_else(|| format!("Localization {} not found in source {}", id, fetched.source))?;
+    Ok((localization, fetched.source))
+}
+
+async fn install_and_record(
+    app_handle: &tauri::AppHandle,
+    state: &AppStateMutex,
+    localization_locks: &LocalizationLocks,
+    game_path: &Path,
+    localization: &utils::Localization,
+    source: &str,
+) -> Result<(), String> {
+    let lock = localization_lock(localization_locks, &localization.id, game_path);
+    let _acquired_lock = lock.lock().await;
+
+    utils::install_localization(game_path, localization)
+        .await
+        .map_err(|e| {
+            error!("Failed to install localization: {:?}", e);
+            e.to_string()
+        })?;
+
+    let mut app_state_guard = state.lock().await;
+
+    app_state_guard
+        .installed_metadata
+        .get_or_insert_with(utils::InstalledMetadata::new)
+        .installed
+        .insert(
+            localization.id.clone(),
+            utils::InstalledLocalization {
+                id: localization.id.clone(),
+                version: localization.version.clone(),
+                source: source.to_owned(),
+            },
+        );
+
+    app_state_guard.save_installed_metadata().map_err(|e| {
+        error!("Failed to save installed metadata: {:?}", e);
+        e.to_string()
+    })?;
+
+    app_handle
+        .emit("app_state_updated", app_state_guard.clone())
+        .map_err(|e| {
+            error!("Failed to emit app state updated: {:?}", e);
+            e.to_string()
+        })?;
+
+    Ok(())
+}
 
 #[tauri::command]
 async fn get_latest_version() -> Result<String, String> {
@@ -112,47 +263,9 @@ async fn get_available_localizations(
 ) -> Result<Vec<utils::Localization>, String> {
     debug!("Fetching available localizations");
 
-    let active_source_name;
-    let source_url;
-
-    {
-        let app_state_guard = app_state.lock().await;
-
-        active_source_name = app_state_guard
-            .settings
-            .selected_source
-            .as_ref()
-            .ok_or_else(|| "No active source selected".to_string())?
-            .clone();
-
-        source_url = app_state_guard
-            .settings
-            .sources
-            .get(&active_source_name)
-            .ok_or_else(|| "No active source selected".to_string())?
-            .url
-            .clone();
-    }
-
-    let localizations = utils::fetch_available_localizations(&source_url)
-        .await
-        .map_err(|e| {
-            error!("Failed to fetch available localizations: {:?}", e);
-            e.to_string()
-        })?;
-
-    // Update remote_localizations state
-    let mut remote_localizations_guard = remote_localizations.lock().await;
-    let remote_localizations = RemoteLocalizations {
-        source: active_source_name,
-        localizations: localizations.clone(),
-    };
-
-    *remote_localizations_guard = Some(remote_localizations.clone());
-    app_handle
-        .emit("remote_localizations_updated", remote_localizations)
-        .map_err(|e| e.to_string())?;
-    Ok(localizations)
+    let fetched =
+        refresh_remote_localizations(&app_handle, &app_state, &remote_localizations).await?;
+    Ok(fetched.localizations)
 }
 
 #[tauri::command]
@@ -166,23 +279,27 @@ async fn update_settings(
     app_handle: tauri::AppHandle,
     state: State<'_, AppStateMutex>,
     remote_localizations: State<'_, RemoteLocalizationsMutex>,
-    new_settings: settings::AppSettings,
+    patch: settings::SettingsPatch,
 ) -> Result<(), String> {
-    debug!("Updating settings");
+    debug!("Updating settings: {:?}", patch);
 
     let mut app_state_guard = state.lock().await;
 
-    if new_settings.selected_source != app_state_guard.settings.selected_source {
-        let mut remote_localizations_guard = remote_localizations.lock().await;
-        *remote_localizations_guard = None;
-    }
+    let source_changed = patch
+        .selected_source
+        .as_ref()
+        .is_some_and(|source| app_state_guard.settings.selected_source.as_ref() != Some(source));
 
     app_state_guard
-        .update_settings(&app_handle, &new_settings)
+        .apply_settings_patch(&app_handle, patch)
         .map_err(|e| {
             error!("Failed to update settings: {:?}", e);
             e.to_string()
         })?;
+
+    if source_changed {
+        *remote_localizations.lock().await = None;
+    }
 
     app_handle
         .emit("app_state_updated", app_state_guard.clone())
@@ -198,144 +315,88 @@ async fn update_settings(
 async fn install_localization(
     app_handle: tauri::AppHandle,
     state: State<'_, AppStateMutex>,
-    localization_lock: State<'_, LocalizationLocks>,
-    localization: utils::Localization,
+    localization_locks: State<'_, LocalizationLocks>,
+    remote_localizations: State<'_, RemoteLocalizationsMutex>,
+    localization_id: String,
 ) -> Result<(), String> {
-    debug!("Installing localization: {:?}", localization.id);
+    debug!("Installing localization: {:?}", localization_id);
 
-    if steam::is_game_running() {
-        return Err("Game is running".to_string());
-    }
+    ensure_game_not_running().await?;
 
-    let game_path;
-    let source;
+    let game_path = state.lock().await.game_path().map_err(|e| {
+        error!("Failed to get game directory: {:?}", e);
+        e.to_string()
+    })?;
 
-    {
-        let app_state_guard = state.lock().await;
+    let (localization, source) =
+        resolve_localization(&app_handle, &state, &remote_localizations, &localization_id).await?;
 
-        source = app_state_guard
-            .settings
-            .selected_source
-            .clone()
-            .ok_or_else(|| "No active source selected".to_string())?;
-
-        game_path = app_state_guard.game_path().map_err(|e| {
-            error!("Failed to get game directory: {:?}", e);
-            e.to_string()
-        })?;
-    }
-
-    let lock = localization_lock
-        .entry((localization.id.clone(), game_path.clone()))
-        .or_insert_with(|| Mutex::new(()));
-    let _acquired_lock = lock.lock().await;
-
-    utils::install_localization(&game_path, &localization)
-        .await
-        .map_err(|e| {
-            error!("Failed to install localization: {:?}", e);
-            e.to_string()
-        })?;
-
-    utils::install_fonts_for_localization(&game_path, &localization)
-        .await
-        .map_err(|e| {
-            error!("Failed to install fonts for localization: {:?}", e);
-            e.to_string()
-        })?;
-
-    {
-        let mut app_state_guard = state.lock().await;
-
-        match app_state_guard.installed_metadata {
-            Some(ref mut installed_metadata) => {
-                installed_metadata.installed.insert(
-                    localization.id.clone(),
-                    utils::InstalledLocalization {
-                        id: localization.id.clone(),
-                        version: localization.version.clone(),
-                        source,
-                    },
-                );
-            }
-            None => {
-                app_state_guard.installed_metadata = Some(
-                    utils::InstalledMetadata::with_localization(&localization, &source),
-                );
-            }
-        }
-
-        app_state_guard.save_installed_metadata().map_err(|e| {
-            error!("Failed to save installed metadata: {:?}", e);
-            e.to_string()
-        })?;
-
-        app_handle
-            .emit("app_state_updated", app_state_guard.clone())
-            .map_err(|e| {
-                error!("Failed to emit app state updated: {:?}", e);
-                e.to_string()
-            })?;
-    }
-
-    Ok(())
+    install_and_record(
+        &app_handle,
+        &state,
+        &localization_locks,
+        &game_path,
+        &localization,
+        &source,
+    )
+    .await
 }
 
 #[tauri::command]
 async fn uninstall_localization(
     app_handle: tauri::AppHandle,
     state: State<'_, AppStateMutex>,
-    localization_lock: State<'_, LocalizationLocks>,
-    localization: utils::Localization,
+    localization_locks: State<'_, LocalizationLocks>,
+    localization_id: String,
 ) -> Result<(), String> {
-    debug!("Uninstalling localization: {:?}", localization.id);
+    debug!("Uninstalling localization: {:?}", localization_id);
 
-    if steam::is_game_running() {
-        return Err("Game is running".to_string());
-    }
+    ensure_game_not_running().await?;
 
-    let game_path;
-
-    {
+    let game_path = {
         let app_state_guard = state.lock().await;
 
-        game_path = app_state_guard.game_path().map_err(|e| {
+        let is_installed = app_state_guard
+            .installed_metadata
+            .as_ref()
+            .is_some_and(|metadata| metadata.installed.contains_key(&localization_id));
+        if !is_installed {
+            return Err(format!("Localization {} is not installed", localization_id));
+        }
+
+        app_state_guard.game_path().map_err(|e| {
             error!("Failed to get game directory: {:?}", e);
             e.to_string()
-        })?;
-    }
+        })?
+    };
 
-    let lock = localization_lock
-        .entry((localization.id.clone(), game_path.clone()))
-        .or_insert_with(|| Mutex::new(()));
+    let lock = localization_lock(&localization_locks, &localization_id, &game_path);
     let _acquired_lock = lock.lock().await;
 
-    utils::uninstall_localization(&game_path, &localization)
+    utils::uninstall_localization(&game_path, &localization_id)
         .await
         .map_err(|e| {
             error!("Failed to uninstall localization: {:?}", e);
             e.to_string()
         })?;
 
-    {
-        let mut app_state_guard = state.lock().await;
+    let mut app_state_guard = state.lock().await;
 
-        if let Some(ref mut installed_metadata) = app_state_guard.installed_metadata {
-            installed_metadata.installed.remove(&localization.id);
-        }
+    if let Some(installed_metadata) = &mut app_state_guard.installed_metadata {
+        installed_metadata.installed.remove(&localization_id);
+    }
 
-        app_state_guard.save_installed_metadata().map_err(|e| {
-            error!("Failed to save installed metadata: {:?}", e);
+    app_state_guard.save_installed_metadata().map_err(|e| {
+        error!("Failed to save installed metadata: {:?}", e);
+        e.to_string()
+    })?;
+
+    app_handle
+        .emit("app_state_updated", app_state_guard.clone())
+        .map_err(|e| {
+            error!("Failed to emit app state updated: {:?}", e);
             e.to_string()
         })?;
-
-        app_handle
-            .emit("app_state_updated", app_state_guard.clone())
-            .map_err(|e| {
-                error!("Failed to emit app state updated: {:?}", e);
-                e.to_string()
-            })?;
-    }
 
     Ok(())
 }
@@ -344,13 +405,20 @@ async fn uninstall_localization(
 async fn repair_localization(
     app_handle: tauri::AppHandle,
     state: State<'_, AppStateMutex>,
-    localization_lock: State<'_, LocalizationLocks>,
-    localization: utils::Localization,
+    localization_locks: State<'_, LocalizationLocks>,
+    remote_localizations: State<'_, RemoteLocalizationsMutex>,
+    localization_id: String,
 ) -> Result<(), String> {
-    debug!("Repairing localization: {:?}", localization.id);
+    debug!("Repairing localization: {:?}", localization_id);
 
-    install_localization(app_handle, state, localization_lock, localization).await?;
-    Ok(())
+    install_localization(
+        app_handle,
+        state,
+        localization_locks,
+        remote_localizations,
+        localization_id,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -389,8 +457,8 @@ async fn set_game_directory(
 async fn update_and_play(
     app_handle: tauri::AppHandle,
     state: State<'_, AppStateMutex>,
-    localization_lock: State<'_, LocalizationLocks>,
-    remote_localizations_state: State<'_, RemoteLocalizationsMutex>,
+    localization_locks: State<'_, LocalizationLocks>,
+    remote_localizations: State<'_, RemoteLocalizationsMutex>,
 ) -> Result<(), String> {
     debug!("Running update and play");
 
@@ -398,59 +466,23 @@ async fn update_and_play(
         .emit("play:started", ())
         .map_err(|e| e.to_string())?;
 
-    if steam::is_game_running() {
+    let game_running = steam::is_game_running().await.map_err(|e| {
+        error!("Failed to check whether the game is running: {:?}", e);
+        e.to_string()
+    })?;
+    if game_running {
         let _ = app_handle.emit("play:game_running", ());
         return Err("Game is already running".to_string());
     }
 
-    let active_source;
-    let source_url;
-    let game_path;
+    let game_path = state.lock().await.game_path().map_err(|e| {
+        error!("Failed to get game directory: {:?}", e);
+        e.to_string()
+    })?;
 
-    {
-        let app_state_guard = state.lock().await;
-        active_source = app_state_guard
-            .settings
-            .selected_source
-            .as_ref()
-            .ok_or_else(|| "No active source selected".to_string())?
-            .clone();
+    let remote = refresh_remote_localizations(&app_handle, &state, &remote_localizations).await?;
 
-        source_url = app_state_guard
-            .settings
-            .sources
-            .get(&active_source)
-            .ok_or_else(|| "No active source selected".to_string())?
-            .url
-            .clone();
-
-        game_path = app_state_guard.game_path().map_err(|e| {
-            error!("Failed to get game directory: {:?}", e);
-            e.to_string()
-        })?;
-    }
-
-    let remote_localizations = utils::fetch_available_localizations(&source_url)
-        .await
-        .map_err(|e| {
-            error!("Failed to fetch available localizations: {:?}", e);
-            e.to_string()
-        })?;
-
-    {
-        let mut remote_localizations_guard = remote_localizations_state.lock().await;
-        let remote_localizations_payload = RemoteLocalizations {
-            source: active_source.clone(),
-            localizations: remote_localizations.clone(),
-        };
-
-        *remote_localizations_guard = Some(remote_localizations_payload.clone());
-        app_handle
-            .emit("remote_localizations_updated", remote_localizations_payload)
-            .map_err(|e| e.to_string())?;
-    }
-
-    let localizations_to_update: Vec<_> = state
+    let localizations_to_update: Vec<utils::Localization> = state
         .lock()
         .await
         .installed_metadata
@@ -459,11 +491,11 @@ async fn update_and_play(
         .installed
         .values()
         .filter_map(|localization| {
-            let remote_localization = remote_localizations
+            let Some(remote_localization) = remote
+                .localizations
                 .iter()
-                .find(|l| l.id == localization.id);
-
-            let Some(remote) = remote_localization else {
+                .find(|l| l.id == localization.id)
+            else {
                 info!(
                     "Localization {} not found in remote source",
                     &localization.id
@@ -477,71 +509,35 @@ async fn update_and_play(
                 .join("Lang")
                 .join(&localization.id);
 
-            if localization_path.exists() && remote.version == localization.version {
+            if localization_path.exists() && remote_localization.version == localization.version {
                 info!("Localization {} is up to date", &localization.id);
                 let _ = app_handle.emit("play:up_to_date", &localization.id);
                 return None;
             }
 
-            Some((localization.id.clone(), remote.clone()))
+            Some(remote_localization.clone())
         })
         .collect();
 
-    for (localization_id, remote_localization) in localizations_to_update {
+    for localization in &localizations_to_update {
         info!(
             "Updating localization {} to version {}",
-            &localization_id, &remote_localization.version
+            &localization.id, &localization.version
         );
-        let _ = app_handle.emit("play:updating", &localization_id);
+        let _ = app_handle.emit("play:updating", &localization.id);
 
-        let lock = localization_lock
-            .entry((localization_id.clone(), game_path.clone()))
-            .or_insert_with(|| Mutex::new(()));
-        let _acquired_lock = lock.lock().await;
+        install_and_record(
+            &app_handle,
+            &state,
+            &localization_locks,
+            &game_path,
+            localization,
+            &remote.source,
+        )
+        .await?;
 
-        utils::install_localization(&game_path, &remote_localization)
-            .await
-            .map_err(|e| {
-                error!("Failed to install localization: {:?}", e);
-                e.to_string()
-            })?;
-
-        utils::install_fonts_for_localization(&game_path, &remote_localization)
-            .await
-            .map_err(|e| {
-                error!("Failed to install fonts for localization: {:?}", e);
-                e.to_string()
-            })?;
-
-        let _ = app_handle.emit("play:update_finished", &localization_id);
-
-        {
-            let mut state_guard = state.lock().await;
-            if let Some(ref mut metadata) = state_guard.installed_metadata {
-                metadata.installed.insert(
-                    remote_localization.id.clone(),
-                    utils::InstalledLocalization {
-                        id: remote_localization.id.clone(),
-                        version: remote_localization.version.clone(),
-                        source: active_source.clone(),
-                    },
-                );
-            }
-        }
+        let _ = app_handle.emit("play:update_finished", &localization.id);
     }
-
-    let state_guard = state.lock().await;
-    state_guard.save_installed_metadata().map_err(|e| {
-        error!("Failed to save installed metadata: {:?}", e);
-        e.to_string()
-    })?;
-
-    app_handle
-        .emit("app_state_updated", state_guard.clone())
-        .map_err(|e| {
-            error!("Failed to emit app state updated: {:?}", e);
-            e.to_string()
-        })?;
 
     if let Err(e) = utils::validate_game_config(&game_path) {
         error!("Failed to validate game config: {:?}", e);
@@ -568,7 +564,7 @@ pub fn run() {
         .plugin(
             tauri_plugin_log::Builder::new()
                 .max_file_size(128_000)
-                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
+                .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepSome(10))
                 .build(),
         )
         .plugin(tauri_plugin_os::init())
@@ -605,8 +601,8 @@ pub fn run() {
             app.manage(Mutex::new(app_state));
             app.manage(Mutex::new(None::<RemoteLocalizations>));
 
-            let localization_locks_mutex: LocalizationLocks = DashMap::new();
-            app.manage(localization_locks_mutex);
+            let localization_locks: LocalizationLocks = DashMap::new();
+            app.manage(localization_locks);
 
             Ok(())
         })
