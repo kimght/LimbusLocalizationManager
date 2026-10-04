@@ -130,7 +130,7 @@
 
     "armor": {
       "penitence": "Penitência",
-      "penitenceDescription": "+3 fortitude;\n+1 justiça;\nAssim que entrar em pânico, imediatamente restaura 20 PS.",
+      "penitenceDescription": "+3 prudência;\n+1 justiça;\nAssim que entrar em pânico, imediatamente restaura 20 PS.",
 
       "redEyes": "Olhos Vermelhos",
       "redEyesDescription": "+3 fortitude;\n+1 prudência;\n+4 temperança.",

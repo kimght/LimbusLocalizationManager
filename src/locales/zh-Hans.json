@@ -130,7 +130,7 @@
 
     "armor": {
       "penitence": "忏悔",
-      "penitenceDescription": "勇气+3；\n正义+1；\n恐慌开始时，立刻恢复20点精神值。",
+      "penitenceDescription": "谨慎+3；\n正义+1；\n恐慌开始时，立刻恢复20点精神值。",
 
       "redEyes": "赤瞳",
       "redEyesDescription": "勇气+3；\n谨慎+1；\n自律+4。",

@@ -130,7 +130,7 @@
 
     "armor": {
       "penitence": "Penitence",
-      "penitenceDescription": "+3 fortitude;\n+1 justice;\nImmediately restore 20 SP on panic start.",
+      "penitenceDescription": "+3 prudence;\n+1 justice;\nImmediately restore 20 SP on panic start.",
 
       "redEyes": "Red Eyes",
       "redEyesDescription": "+3 fortitude;\n+1 prudence;\n+4 temperance.",

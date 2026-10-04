@@ -130,7 +130,7 @@
 
     "armor": {
       "penitence": "Penitencia",
-      "penitenceDescription": "Fortitud +3;\nJusticia +1;\nInmediatamente recuperar 20 PC al entrar en pánico.",
+      "penitenceDescription": "Prudencia +3;\nJusticia +1;\nInmediatamente recuperar 20 PC al entrar en pánico.",
 
       "redEyes": "Ojos Rojos",
       "redEyesDescription": "Fortitud +3;\nPrudencia +1;\nTemplanza +4.",

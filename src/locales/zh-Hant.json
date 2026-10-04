@@ -130,7 +130,7 @@
 
     "armor": {
       "penitence": "懺悔",
-      "penitenceDescription": "+3 剛毅；\n+1 正義；\n恐慌開始時立即恢復20 SP。",
+      "penitenceDescription": "+3 謹慎；\n+1 正義；\n恐慌開始時立即恢復20 SP。",
 
       "redEyes": "赤眼",
       "redEyesDescription": "+3 剛毅；\n+1 謹慎；\n+4 自律。",
