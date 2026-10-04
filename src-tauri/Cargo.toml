@@ -1,6 +1,6 @@
 [package]
 name = "limbus-localization-manager"
-version = "1.5.1"
+version = "1.5.2"
 description = "Limbus Localization Manager"
 authors = ["kimght"]
 edition = "2021"

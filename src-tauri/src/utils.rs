@@ -257,7 +257,7 @@ impl Localization {
     fn validate(&self) -> Result<(), anyhow::Error> {
         validate_path_component(&self.id, "localization id")?;
         for font in &self.fonts {
-            validate_path_component(&font.name, "font name")?;
+            validate_relative_path(&font.name, "font name")?;
             anyhow::ensure!(
                 font.hash.len() == 32 && font.hash.bytes().all(|b| b.is_ascii_hexdigit()),
                 "Invalid font hash {:?}",
@@ -281,6 +281,17 @@ fn validate_path_component(value: &str, what: &str) -> Result<(), anyhow::Error>
         what,
         value
     );
+    Ok(())
+}
+
+fn validate_relative_path(value: &str, what: &str) -> Result<(), anyhow::Error> {
+    let is_valid = !value.is_empty()
+        && !value.contains(':')
+        && value
+            .split(['/', '\\'])
+            .all(|segment| validate_path_component(segment, what).is_ok());
+
+    anyhow::ensure!(is_valid, "Invalid {}: {:?}", what, value);
     Ok(())
 }
 
@@ -555,8 +566,10 @@ async fn install_fonts(
 
     for font in fonts {
         let cached = cache_font(&cache_dir, font).await?;
-        let target_dir = font_dir.to_path_buf();
         let target = font_dir.join(&font.name);
+        let target_dir = target
+            .parent()
+            .map_or_else(|| font_dir.to_path_buf(), Path::to_path_buf);
 
         blocking(move || {
             fs::create_dir_all(&target_dir)
