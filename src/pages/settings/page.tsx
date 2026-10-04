@@ -1,10 +1,10 @@
 import styles from "./page.module.css";
-import { ArrowDown, Bug, FileText, Folder, FolderOpen, X } from "lucide-react";
+import { ArrowDown, FileText, Folder, FolderOpen, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { toastError } from "@/components/toast/toast";
 import { languageNames } from "@/i18n";
-import { NavLink, useLocation } from "react-router";
+import { useLocation } from "react-router";
 import { cn, openConfigDir, openLogDir } from "@/utils";
 import {
   useAppState,
@@ -105,14 +105,6 @@ function Page() {
           <FileText size={16} />
           {t("settings.openConfig")}
         </button>
-        <NavLink
-          to="/debug"
-          className={cn(styles.button, "flex items-center justify-center")}
-          aria-label="Debug"
-          title="Debug"
-        >
-          <Bug size={16} />
-        </NavLink>
       </div>
     </div>
   );
