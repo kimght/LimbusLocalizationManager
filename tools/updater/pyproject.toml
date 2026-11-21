@@ -1,0 +1,64 @@
+[project]
+name = "llm-updater"
+version = "1.0.0"
+description = "Localization manifest and mirror updater for LimbusLocalizationManager"
+requires-python = ">=3.11"
+dependencies = [
+    "pillow==12.2.0",
+    "PySocks==1.7.1",
+    "requests==2.32.3",
+    "schedule==1.2.2",
+]
+
+[project.optional-dependencies]
+mirror = [
+    "minio==7.2.16",
+]
+
+[project.scripts]
+llm-updater = "llm_updater.cli:main"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.29.0",
+    "pytest>=8.3.0",
+    "pyyaml>=6.0.2",
+    "ruff>=0.11.0",
+    "types-PyYAML>=6.0.12",
+    "types-requests>=2.32.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm_updater"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "B",
+    "UP",
+    "SIM",
+    "RUF",
+]
+ignore = [
+    "E501",
+]
+
+[tool.basedpyright]
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+reportMissingTypeStubs = false

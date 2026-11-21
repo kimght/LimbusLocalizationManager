@@ -1,8 +1,8 @@
 name: Update Localizations Gist
 
 on:
-  # schedule:
-  #   - cron: '0 0 * * *'
+  schedule:
+    - cron: '23 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -12,17 +12,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install -r scripts/update_gist/requirements.txt
+          enable-cache: true
+          cache-dependency-glob: tools/updater/uv.lock
 
       - name: Run update script
         env:
           GITHUB_GIST_ID: ${{ secrets.GIST_ID }}
-          GITHUB_GIST_OWNER: ${{ secrets.GIST_OWNER }}
           GITHUB_TOKEN: ${{ secrets.GIST_UPDATE_TOKEN }}
-        run: python scripts/update_gist/main.py 
+          CHAPTERS_URL: ${{ vars.CHAPTERS_URL }}
+        run: uv run --project tools/updater --frozen --no-dev llm-updater gist --config data/localizations.toml

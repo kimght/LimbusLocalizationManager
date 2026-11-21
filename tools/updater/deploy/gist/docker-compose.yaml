@@ -1,0 +1,11 @@
+services:
+  update-gist:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: gist
+    volumes:
+      - ../../../../data/localizations.toml:/app/localizations.toml:ro
+    restart: unless-stopped
+    env_file:
+      - .env

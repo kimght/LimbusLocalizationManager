@@ -1,25 +1,34 @@
 services:
   update-mirror:
     build:
-      context: .
+      context: ../..
       dockerfile: Dockerfile
+      target: mirror
     volumes:
-      - ../localizations.toml:/app/localizations.toml
-    restart: always
+      - ../../../../data/localizations.toml:/app/localizations.toml:ro
+    restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
     environment:
-      CONFIG_URL: "${CONFIG_URL}"
-      CHAPTERS_URL: "${CHAPTERS_URL}"
-      GITHUB_TOKEN: "${GITHUB_TOKEN}"
-      GITHUB_PROXY: "${GITHUB_PROXY}"
+      CONFIG_URL: "${CONFIG_URL:-}"
+      CONFIG_PATH: "${CONFIG_PATH:-}"
+      CHAPTERS_URL: "${CHAPTERS_URL:-}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
+      GITHUB_PROXY: "${GITHUB_PROXY:-}"
+      HTTP_METADATA_TIMEOUT: "${HTTP_METADATA_TIMEOUT:-}"
+      HTTP_DOWNLOAD_TIMEOUT: "${HTTP_DOWNLOAD_TIMEOUT:-}"
       MINIO_ENDPOINT: "minio:9000"
       MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY}"
       MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
-      MINIO_PUBLIC_URL: "${MINIO_PUBLIC_URL}"
-      MINIO_BUCKET: "localizations"
+      MINIO_PUBLIC_URL: "${MINIO_PUBLIC_URL:-}"
+      MINIO_BUCKET: "${MINIO_BUCKET:-localizations}"
+      MINIO_SECURE: "${MINIO_SECURE:-false}"
 
   minio:
-    image: minio/minio:latest
+    image: "${MINIO_IMAGE:-minio/minio:latest}"
     container_name: minio
+    restart: unless-stopped
     volumes:
       - minio-data:/data
     ports:
@@ -30,6 +39,12 @@ services:
       # MINIO_SERVER_URL: "${MINIO_SERVER_URL}"
       MINIO_BROWSER: "off"
     command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.minio.rule=Host(`${MINIO_DOMAIN}`)"
@@ -40,6 +55,7 @@ services:
   traefik:
     image: traefik:v2.11
     container_name: traefik
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
@@ -47,7 +63,6 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "traefik-certs:/letsencrypt"
     command:
-      - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"

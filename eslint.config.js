@@ -15,7 +15,7 @@ export default [
       "**/*.css",
       "**/dist",
       "public/*",
-      "scripts/*",
+      "tools/*",
       "**/*.config.js",
       "**/.DS_Store",
       "**/node_modules",
